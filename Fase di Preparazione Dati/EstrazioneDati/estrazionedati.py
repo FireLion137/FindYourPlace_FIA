@@ -12,6 +12,8 @@ Definizione di tutti i metodi usati. **AVVIARE PRIMA DI QUALSIASI ALTRO CODICE**
 import json
 import re
 import time
+import requests
+from enum import Enum
 
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
@@ -19,6 +21,7 @@ from geopy.exc import GeocoderTimedOut, GeocoderQuotaExceeded
 
 from sklearn.neighbors import BallTree
 import numpy as np
+import pandas as pd
 
 
 with open('CL_ITTER107.json', 'r') as file:
@@ -34,7 +37,7 @@ def find_id_comune_by_name(name):
             return code['id']
     return None
 
-# Funzione per trovare l'id in base al nome della regione
+# Funzione per trovare l'id in base al nome della regione o provincia
 def find_id_regione_by_name(name):
     for code in codes:
         if code['name']['it'] == name and re.match("^IT.*$", code['id']):
@@ -60,7 +63,7 @@ def extract_problemi_observation(response_json):
 # Funzione per ottenere le denunce in una regione
 def extract_denunce_observation(response_json):
     try:
-        observation = response_json['data']['dataSets'][0]['series']['0:0:0:0']['observations']['0'][0]
+        observation = response_json['data']['dataSets'][0]['series']['0:0:0:0:0:0']['observations']['0'][0]
         return observation
     except KeyError:
         return None
@@ -92,11 +95,13 @@ def extract_rischi_idro_observation(response_json):
     except KeyError:
         return None
 
+
+geolocator = Nominatim(user_agent="FindYourPlace")
+geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=5)
+reverse = RateLimiter(geolocator.reverse, min_delay_seconds=1, max_retries=5)
+
 # Funzione per ottenere location da un comune
 def trova_location(comune):
-    geolocator = Nominatim(user_agent="FindYourPlace")
-    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=5)
-
     try:
       structuredQuery = {
         "postalcode" : '',
@@ -157,10 +162,81 @@ def trova_coordinate_vicine(latitudine, longitudine, dataframe):
 
     return nearest[['LAT', 'LON', 'Zona Sismica']]
 
-""">Trova popolazione in base al nome del comune"""
+# Funzione per ottenere la regione dal comune
+def trova_regione_da_comune(comune):
+    location = trova_location(comune)
 
-import requests
-import re
+    if location:
+        position = reverse((location.latitude, location.longitude), language='it')
+        regione = position.raw['address']['state']
+        return regione
+    else:
+        return None
+
+# Funzione per ottenere la regione dal comune
+def trova_provincia_da_comune(comune):
+    location = trova_location(comune)
+
+    if location:
+        position = reverse((location.latitude, location.longitude), language='it')
+        regione = position.raw['address']['county']
+        return regione
+    else:
+        return None
+
+
+### Lettura dati scaricati istat
+class Request_Type(Enum):
+    INQUINAMENTO = "inq"
+    CRIMINALITA = "crim"
+    DENUNCE = "den"
+    SUPERFICIE= "sup"
+    IDROGEOLOGICO= "idro"
+    POPOLAZIONE= "pop"
+
+# Funzione per trovare valore in locale invece che tramite api istat
+def trova_valore_per_id(id, request_type):
+  valid = {"inq", "crim", "den", "sup", "idro", "pop"}
+  if request_type not in valid:
+      raise ValueError("Errore: request_type must be one of %r." % valid)
+
+  if(request_type == "inq"):
+    with open('istatData/inquinamentoRegioni.json', 'r') as file:
+        jsonFile = json.load(file)
+  elif(request_type == "crim"):
+    with open('istatData/criminalitaRegioni.json', 'r') as file:
+        jsonFile = json.load(file)
+  elif(request_type == "den"):
+    with open('istatData/denunceProvince.json', 'r') as file:
+        jsonFile = json.load(file)
+  elif(request_type == "sup"):
+    with open('istatData/superficieComuni.json', 'r') as file:
+        jsonFile = json.load(file)
+  elif(request_type == "idro"):
+    with open('istatData/rischioIdrogeologicoComuni.json', 'r') as file:
+        jsonFile = json.load(file)
+  elif(request_type == "pop"):
+    with open('istatData/popolazione.json', 'r') as file:
+        jsonFile = json.load(file)
+
+  result= []
+  for series in jsonFile['message:GenericData']['message:DataSet']['generic:Series']:
+      series_key = series['generic:SeriesKey']['generic:Value']
+      ref_area_dict = next((i for i in series_key if i['@id'] in ['REF_AREA', 'ITTER107'] and i['@value'] == id), None)
+
+      if ref_area_dict:
+        try:
+          result.append(float(series['generic:Obs']['generic:ObsValue']['@value']))
+        except KeyError:
+          result.append(-1);
+
+  if len(result) == 0:
+    return -1
+  elif len(result) == 1:
+    return result[0]
+  return result
+
+""">Trova popolazione in base al nome del comune"""
 
 # Trova id tramite nome comune
 comune_to_find = 'Salerno'
@@ -189,74 +265,7 @@ if response.status_code == 200:
 else:
     print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
 
-"""Trova presenza di problemi nella zona di residenza delle famiglie, come inquinamento, rumori o criminalità.<br>
-Trova numero segnalazioni di denunce e arresti.
-"""
-
-import requests
-import re
-from enum import Enum
-
-# Trova id tramite nome regione oppure Nord-Centro-Sud
-regione_to_find = 'Campania'
-id_regione_found = find_id_regione_by_name(regione_to_find)
-
-if id_regione_found:
-    print(f"L'id corrispondente al nome '{regione_to_find}' è: {id_regione_found}")
-else:
-    print(f"Nome '{regione_to_find}' non trovato.")
-
-class Problema(Enum):
-    INQUINAMENTO = 1
-    RUMORI = 2
-    CRIMINALITA = 3
-
-problema_scelto= Problema.INQUINAMENTO
-
-# Costruisci l'URL con l'id trovato
-api_url = f'https://sdmx.istat.it/SDMXWS/rest/data/33_291/A.{id_regione_found}...{problema_scelto.value}..........?startPeriod=2022&format=jsondata'
-
-# Effettua la richiesta all'API
-response = requests.get(api_url)
-
-# Verifica se la richiesta ha avuto successo (status code 200)
-if response.status_code == 200:
-    # Estrai l'observation dalla risposta JSON
-    observation = extract_problemi_observation(response.json())
-
-    if observation is not None:
-        print(f"L'observation di {problema_scelto.name} estratto è: {observation}")
-    else:
-        print(f"Observation di {problema_scelto.name} non trovato nella risposta JSON.")
-else:
-    print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
-
-
-#### Segnalazioni relative a persone denunciate e arresti
-
-# Costruisci l'URL con l'id trovato
-api_url = f'https://sdmx.istat.it/SDMXWS/rest/data/73_342/A.{id_regione_found}.REPN.TOT.?startPeriod=2022&format=jsondata'
-
-# Effettua la richiesta all'API
-response = requests.get(api_url)
-
-# Verifica se la richiesta ha avuto successo (status code 200)
-if response.status_code == 200:
-    # Estrai l'observation dalla risposta JSON
-    observation = extract_denunce_observation(response.json())
-
-    if observation is not None:
-        print(f"L'observation delle denunce estratto è: {observation}")
-    else:
-        print(f"Observation delle denunce non trovato nella risposta JSON.")
-else:
-    print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
-
 """Trova spesa media per consumi"""
-
-import requests
-import re
-from enum import Enum
 
 # Trova id tramite nome regione oppure Nord-Centro-Sud
 regione_to_find = 'Campania'
@@ -295,11 +304,71 @@ if response.status_code == 200:
 else:
     print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
 
-"""Trova aree a pericolosità idraulica in km2"""
+"""Trova presenza di problemi nella zona di residenza delle famiglie, come inquinamento, rumori o criminalità.<br>
+Trova numero denunce.
+"""
 
-import requests
-import re
-from enum import Enum
+comune= 'Legnano'
+
+# Trova id tramite nome regione oppure Nord-Centro-Sud
+regione_to_find = trova_regione_da_comune(comune)
+id_regione_found = find_id_regione_by_name(regione_to_find)
+
+if id_regione_found:
+    print(f"L'id corrispondente al nome '{regione_to_find}' è: {id_regione_found}")
+else:
+    print(f"Nome '{regione_to_find}' non trovato.")
+
+class Problema(Enum):
+    INQUINAMENTO = 1
+    RUMORI = 2
+    CRIMINALITA = 3
+
+problema_scelto= Problema.INQUINAMENTO
+
+# Costruisci l'URL con l'id trovato
+api_url = f'https://sdmx.istat.it/SDMXWS/rest/data/33_291/A.{id_regione_found}...{problema_scelto.value}..........?startPeriod=2022&format=jsondata'
+
+# Effettua la richiesta all'API
+response = requests.get(api_url)
+
+# Verifica se la richiesta ha avuto successo (status code 200)
+if response.status_code == 200:
+    # Estrai l'observation dalla risposta JSON
+    observation = extract_problemi_observation(response.json())
+
+    if observation is not None:
+        print(f"L'observation di {problema_scelto.name} estratto è: {observation}")
+    else:
+        print(f"Observation di {problema_scelto.name} non trovato nella risposta JSON.")
+else:
+    print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
+
+
+#### Segnalazioni relative a persone denunciate e arresti
+provincia= trova_provincia_da_comune(comune)
+id_provincia= find_id_regione_by_name(provincia)
+print(f"L'id della provincia '{provincia}' è: {id_provincia}")
+
+# Costruisci l'URL con l'id trovato
+api_url = f'https://sdmx.istat.it/SDMXWS/rest/data/73_67/A.{id_provincia}.CRIMEN.TOT.9..?startPeriod=2022&format=jsondata'
+
+# Effettua la richiesta all'API
+response = requests.get(api_url)
+
+# Verifica se la richiesta ha avuto successo (status code 200)
+if response.status_code == 200:
+    # Estrai l'observation dalla risposta JSON
+    observation = extract_denunce_observation(response.json())
+
+    if observation is not None:
+        print(f"L'observation delle denunce estratto è: {observation}")
+    else:
+        print(f"Observation delle denunce non trovato nella risposta JSON.")
+else:
+    print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
+
+"""Trova aree a pericolosità idrogeologica in km2"""
 
 # Trova id tramite nome comune
 comune_to_find = 'Venezia'
@@ -351,8 +420,13 @@ if response.status_code == 200:
         print(f"L'observationMED estratto è: {observations[1]}")
         print(f"L'observationHIGH estratto è: {observations[2]}")
 
-        rischio_idro= (observations[0] + observations[1] + observations[2])/superficie*100
-        print(f"Il rischio idrogeologico è: {rischio_idro}")
+        idrogeologicoLow= observations[0]-observations[1] # Rimuovo il Med (in cui vi è anche l'high)
+        idrogeologicoMed= observations[1]-observations[2] # Rimuovo l' High
+        idrogeologicoHigh= observations[2]
+
+        rischio_ponderato= idrogeologicoLow*0.5+idrogeologicoMed*1+idrogeologicoHigh*1.5
+        rischio_idro_perc= rischio_ponderato/max(superficie, rischio_ponderato)*100
+        print(f"Il rischio idrogeologico è: {rischio_idro_perc}")
 
     else:
         print(f"Observation non trovato nella risposta JSON.")
@@ -361,8 +435,6 @@ else:
     print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
 
 """Estrazione Zone Sismiche."""
-
-import pandas as pd
 
 # Caricamento dei dati
 sismi = pd.read_csv('italiaMedianaSismi.csv', sep=';')
@@ -396,8 +468,6 @@ sismi[["LON", "LAT", "Zona Sismica"]].to_csv("Zone Sismiche.csv", index=False)
 
 """Trova Zona Sismica di un comune"""
 
-import pandas as pd
-
 comune_da_cercare = "Napoli"
 coordinate = trova_coordinate(comune_da_cercare)
 
@@ -416,6 +486,143 @@ if coordinate:
     print(near_coords)
 else:
     print(f"Coordinate non trovate per {comune_da_cercare}")
+
+"""Codice per convertire xml in json"""
+
+!pip install xmltodict
+import xmltodict
+
+with open("file.xml") as xml_file:
+    data_dict = xmltodict.parse(xml_file.read())
+
+json_data = json.dumps(data_dict)
+with open("file.json", "w") as json_file:
+        json_file.write(json_data)
+
+"""Trovo minimo e massimo delle denunce nelle regioni per normalizzare in seguito le denunce."""
+
+listaIdRegioni= ['ITC1', 'ITC2', 'ITC3', 'ITC4',
+                 'ITD1', 'ITD2', 'ITD3', 'ITD4', 'ITD5', 'ITDA',
+                 'ITE1', 'ITE2', 'ITE3', 'ITE4',
+                 'ITF1', 'ITF2', 'ITF3', 'ITF4', 'ITF5', 'ITF6',
+                 'ITG1', 'ITG2']
+
+listaProvince = [
+    "Agrigento","Alessandria","Ancona","Arezzo","Ascoli Piceno","Asti","Avellino","Bari","Barletta-Andria-Trani",
+    "Belluno","Benevento","Bergamo","Biella","Bologna","Bolzano / Bozen","Brescia","Brindisi","Cagliari","Caltanissetta",
+    "Campobasso","Caserta","Catania","Catanzaro","Chieti","Como","Cosenza","Cremona","Crotone","Cuneo",
+    "Enna","Fermo","Ferrara","Firenze","Foggia","Forlì-Cesena","Frosinone","Genova","Gorizia","Grosseto","Imperia","Isernia",
+    "La Spezia","L'Aquila","Latina","Lecce","Lecco","Livorno","Lodi","Lucca","Macerata","Mantova","Massa-Carrara","Matera",
+    "Messina","Milano","Modena","Monza e della Brianza","Napoli","Novara","Nuoro","Oristano","Padova","Palermo","Parma","Pavia",
+    "Perugia","Pesaro e Urbino","Pescara","Piacenza","Pisa","Pistoia","Pordenone","Potenza","Prato","Ragusa","Ravenna",
+    "Reggio di Calabria","Reggio nell'Emilia","Rieti","Rimini","Roma","Rovigo","Salerno","Sassari","Savona",
+    "Siena","Siracusa","Sondrio","Sud Sardegna","Taranto","Teramo","Terni","Torino","Trapani","Trento","Treviso","Trieste","Udine",
+    "Varese","Venezia","Verbano-Cusio-Ossola","Vercelli","Verona","Vibo Valentia","Vicenza","Viterbo"
+]
+
+
+min_denunce_per_ab = float('inf')
+max_denunce_per_ab = float('-inf')
+for provincia in listaProvince:
+  id_provincia= find_id_regione_by_name(provincia)
+  denunce= int(trova_valore_per_id(id_provincia, Request_Type.DENUNCE.value))
+  popolazione= int(trova_valore_per_id(id_provincia, Request_Type.POPOLAZIONE.value))
+
+  if(denunce == -1 or popolazione == -1):
+    continue
+
+  denunce_per_ab= denunce/popolazione*100000
+  if denunce_per_ab < min_denunce_per_ab:
+      min_denunce_per_ab = denunce_per_ab
+  if denunce_per_ab > max_denunce_per_ab:
+      max_denunce_per_ab = denunce_per_ab
+
+print("Valore minimo delle denunce ogni 100.000 abitanti: ", min_denunce_per_ab)
+print("Valore massimo delle denunce ogni 100.000 abitanti: ", max_denunce_per_ab)
+
+"""Calcolo pericolosità in percentuale di un comune"""
+
+comune= "Milano"
+id_comune = find_id_comune_by_name(comune)
+print(f'ID Comune ISTAT: {id_comune}')
+
+provincia= trova_provincia_da_comune(comune)
+id_provincia = find_id_regione_by_name(provincia)
+print(f'ID Provincia ISTAT: {id_provincia}')
+
+regione= trova_regione_da_comune(comune)
+id_regione = find_id_regione_by_name(regione)
+print(f'ID Regione ISTAT: {id_regione}')
+
+coordinate= trova_coordinate(comune)
+print(f'Coordinate Comune: {coordinate}\n')
+
+
+#### Inquinamento Regione
+inquinamento= trova_valore_per_id(id_regione, Request_Type.INQUINAMENTO.value)
+print(f'Inquinamento {regione} con id {id_regione}: {inquinamento}')
+
+#### Criminalità Regione
+criminalità= trova_valore_per_id(id_regione, Request_Type.CRIMINALITA.value)
+print(f'Criminalità {regione} con id {id_regione}: {criminalità}')
+
+#### Denunce per 100000 Abitanti Provincia
+popolazione= int(trova_valore_per_id(id_provincia, Request_Type.POPOLAZIONE.value))
+denunce= int(trova_valore_per_id(id_provincia, Request_Type.DENUNCE.value))
+denunce_per_ab= denunce/popolazione*100000
+print(f'Denunce ogni 100.000 abitanti in {provincia} con id {id_provincia}: {denunce_per_ab}')
+
+#### Rischio idrogeologico Comune
+idrogeologicoValues= trova_valore_per_id(id_comune, Request_Type.IDROGEOLOGICO.value)
+## L'ordine è HIGH - LOW - MED, in Low è incluso Med, in cui a sua volta è incluso High
+idrogeologicoLow= idrogeologicoValues[1]-idrogeologicoValues[2] # Rimuovo il Med (in cui vi è anche l'high)
+idrogeologicoMed= idrogeologicoValues[2]-idrogeologicoValues[0] # Rimuovo l' High
+idrogeologicoHigh= idrogeologicoValues[0]
+## Trovo superficie comune e calcolo il rischio ponderato
+superficie= trova_valore_per_id(id_comune, Request_Type.SUPERFICIE.value)/100
+rischio_ponderato= idrogeologicoLow*0.5+idrogeologicoMed*1+idrogeologicoHigh*1.5
+rischio_idro_perc= rischio_ponderato/max(superficie, rischio_ponderato)*100
+print(f'Rischio idrogeologico {comune} con id {id_comune}: {rischio_idro_perc}')
+
+#### Zona Sismica Comune
+near_coords = trova_coordinate_vicine(coordinate[0], coordinate[1], pd.read_csv('Zone Sismiche.csv'))
+zona_sismica = int(near_coords.iloc[0]['Zona Sismica'])
+print(f'Zona Sismica {comune} con id {id_comune}: {zona_sismica}\n')
+
+
+
+#### Calcolo indice di pericolosità
+
+## Normalizzo le denunce
+def normalizza_denunce(denunce, minimo_denunce, massimo_denunce):
+    if (massimo_denunce - minimo_denunce) <= 0:
+        return 0.0
+    else:
+        denunce_normalizzate= (denunce - minimo_denunce)/(massimo_denunce - minimo_denunce)*100
+        return denunce_normalizzate
+## Avviare il codice per calcolare min e max prima!
+den_normal= normalizza_denunce(denunce_per_ab, min_denunce_per_ab , max_denunce_per_ab)
+
+## Normalizzo la zona sismica
+sismi_normal= (1-(zona_sismica - 1)/3)*100
+
+## Pesi per il calcolo ponderato
+peso_inquinamento = 0.15
+peso_criminalita = 0.2
+peso_denunce = 0.3
+peso_rischio_idrogeologico = 0.1
+peso_zona_sismica = 0.25
+
+
+pericolosità = (
+        peso_inquinamento * (inquinamento if inquinamento != -1 else 0) +
+        peso_criminalita * (criminalità if criminalità != -1 else 0) +
+        peso_denunce * den_normal +
+        peso_rischio_idrogeologico * rischio_idro_perc +
+        peso_zona_sismica * sismi_normal
+    )
+
+print(f'La pericolosità di {comune} è: {pericolosità}')
 
 """Trova Bounding Box di un comune e ricerca numero negozi, ristoranti e scuole<br>
 Purtroppo il limite di pois trovabili è 100, per cui mi limito a cercare in un raggio di X metri solo determinate categorie.
@@ -516,8 +723,6 @@ else:
 Infatti spesso il codice soprastante anche usando solo un certo raggio e certe categorie, riesce a trovare più negozi in un certo paese.
 """
 
-import requests
-
 def trova_numero_negozi(bbox_query):
     overpass_endpoint = "https://overpass-api.de/api/interpreter"
 
@@ -559,8 +764,6 @@ numero_negozi_trovati = trova_numero_negozi(bbox_query)
 print(f"Numero di negozi nel bbox specificato: {numero_negozi_trovati}")
 
 """Creazione dataset IdQ province con dati assegnati"""
-
-import pandas as pd
 
 province= pd.read_csv('IdQ_Province.csv')
 print(province)
