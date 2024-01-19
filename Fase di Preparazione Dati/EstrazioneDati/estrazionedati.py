@@ -748,7 +748,7 @@ def trova_numero_poi_herev7(comune, poi_type, raggio= None):
     #f'&in=bbox:{bounding_box[0]},{bounding_box[1]},{bounding_box[2]},{bounding_box[3]}'
     f'&in=circle:{coords[0]},{coords[1]};r={raggio}'
     #https://www.here.com/docs/bundle/places-search-api-developer-guide/page/topics/place_categories/category-600-shopping.html
-    f'&categories=800-8200-0000,800-8200-0173,800-8200-0174'
+    f'&categories=800-8200-0000'
     f'&limit=100&apiKey={API_KEY}')
 
     response = requests.get(api_url)
@@ -759,8 +759,8 @@ def trova_numero_poi_herev7(comune, poi_type, raggio= None):
         print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
     return num
 
-#result= trova_numero_poi_herev7('Milano', Poi_Type.NEGOZIO.value)
-#print(f'Il numero di {Poi_Type.NEGOZIO.name} è: {result}')
+result= trova_numero_poi_herev7('Castel San Giorgio', Poi_Type.SCUOLA.value)
+print(f'Il numero è: {result}')
 
 """In questo codice invece provo ad usare overpass, ma in caso di comuni con pochi dati, questo risulterà inaffidabile.<br>
 Infatti spesso il codice soprastante anche usando solo un certo raggio e certe categorie, riesce a trovare più negozi in un certo paese.
@@ -776,9 +776,9 @@ def trova_numero_negozi_overpass(comune):
     query = f"""
     [out:json];
     (
-        node["shop"]({bbox_query});
-        way["shop"]({bbox_query});
-        relation["shop"]({bbox_query});
+        node["building"="school"]({bbox_query});
+        way["building"="school"]({bbox_query});
+        relation["building"="school"]({bbox_query});
     );
     out count;
     """
@@ -799,7 +799,7 @@ def trova_numero_negozi_overpass(comune):
 
 # Trova il numero di negozi del comune
 numero_negozi_trovati = trova_numero_negozi_overpass('Milano')
-print(f"Numero di negozi nel bbox specificato: {numero_negozi_trovati}")
+print(f"Numero nel bbox specificato: {numero_negozi_trovati}")
 
 """Creazione dataset IdQ Comuni con dati assegnati<br>
 **ATTENZIONE: Il file iniziale usato è stato modificato a mano per far combaciare i comuni con le varie risorse disponibili**
