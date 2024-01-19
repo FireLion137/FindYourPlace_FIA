@@ -30,18 +30,53 @@ with open('CL_ITTER107.json', 'r') as file:
 # Estrai la lista di codici dal file JSON
 codes = data['data']['codelists'][0]['codes']
 
+# Associazioni per nomi non corrispondenti
+associazioni_comune= {
+    "Bolzano": "Bolzano/Bozen",
+    "Bolzano / Bozen": "Bolzano/Bozen",
+    "Forli": "Forlì"
+}
 # Funzione per trovare l'id in base al nome del comune
 def find_id_comune_by_name(name):
+    result= []
     for code in codes:
         if code['name']['it'] == name and re.match("^\d{6}$", code['id']):
-            return code['id']
-    return None
+            result.append(code['id'])
 
+    if len(result) == 0 and name in associazioni_comune:
+      name= associazioni_comune[name]
+      for code in codes:
+        if code['name']['it'] == name and re.match("^\d{6}$", code['id']):
+            result.append(code['id'])
+
+    print(name, result)
+    if len(result) == 0:
+        return None
+    elif len(result) == 1:
+        return result[0]
+    return result
+
+# Associazioni per nomi non corrispondenti
+associazioni_regione_province= {
+    "Provincia di Trento": "Trento",
+    "Trentino-Alto Adige": "Trentino Alto Adige / Südtirol",
+    "Bolzano": "Bolzano / Bozen",
+    "Reggio Calabria": "Reggio di Calabria",
+    "Provincia di Imperia": "Imperia"
+}
 # Funzione per trovare l'id in base al nome della regione o provincia
 def find_id_regione_by_name(name):
     for code in codes:
         if code['name']['it'] == name and re.match("^IT.*$", code['id']):
             return code['id']
+
+    if name in associazioni_regione_province:
+      name= associazioni_regione_province[name]
+      for code in codes:
+        if code['name']['it'] == name and re.match("^IT.*$", code['id']):
+            return code['id']
+    else:
+      return None
     return None
 
 # Funzione per ottenere gli abitanti di un comume
@@ -137,7 +172,7 @@ def trova_coordinate(comune):
 
 # Funzione per ottenere il bounding box di un comune
 def get_bounding_box(comune, bbox_type):
-    valid = {"have", "overpass"}
+    valid = {"here", "overpass"}
     if bbox_type not in valid:
       raise ValueError("results: type must be one of %r." % valid)
 
@@ -146,7 +181,7 @@ def get_bounding_box(comune, bbox_type):
     if loc:
         bounding_box = loc.raw.get('boundingbox', None)
         if bounding_box:
-            if bbox_type=="have":
+            if bbox_type=="here":
               return bounding_box[2], bounding_box[0], bounding_box[3], bounding_box[1]
             elif bbox_type=="overpass":
               return bounding_box[0], bounding_box[2], bounding_box[1], bounding_box[3]
@@ -179,7 +214,10 @@ def trova_provincia_da_comune(comune):
 
     if location:
         position = reverse((location.latitude, location.longitude), language='it')
-        regione = position.raw['address']['county']
+        try:
+          regione = position.raw['address']['county']
+        except:
+          regione = position.raw['address']['province']
         return regione
     else:
         return None
@@ -193,10 +231,11 @@ class Request_Type(Enum):
     SUPERFICIE= "sup"
     IDROGEOLOGICO= "idro"
     POPOLAZIONE= "pop"
+    SPESA_MEDIA= "spesa"
 
 # Funzione per trovare valore in locale invece che tramite api istat
 def trova_valore_per_id(id, request_type):
-  valid = {"inq", "crim", "den", "sup", "idro", "pop"}
+  valid = {"inq", "crim", "den", "sup", "idro", "pop", "spesa"}
   if request_type not in valid:
       raise ValueError("Errore: request_type must be one of %r." % valid)
 
@@ -218,18 +257,34 @@ def trova_valore_per_id(id, request_type):
   elif(request_type == "pop"):
     with open('istatData/popolazione.json', 'r') as file:
         jsonFile = json.load(file)
+  elif(request_type == "spesa"):
+    with open('istatData/spesaMediaRegioni.json', 'r') as file:
+        jsonFile = json.load(file)
 
   result= []
   for series in jsonFile['message:GenericData']['message:DataSet']['generic:Series']:
       series_key = series['generic:SeriesKey']['generic:Value']
-      ref_area_dict = next((i for i in series_key if i['@id'] in ['REF_AREA', 'ITTER107'] and i['@value'] == id), None)
 
-      if ref_area_dict:
-        try:
-          result.append(float(series['generic:Obs']['generic:ObsValue']['@value']))
-        except KeyError:
-          result.append(-1);
+      if type(id) is not list:
+        ref_area_dict = next((i for i in series_key if i['@id'] in ['REF_AREA', 'ITTER107'] and i['@value'] == id), None)
 
+        if ref_area_dict:
+          try:
+            result.append(float(series['generic:Obs']['generic:ObsValue']['@value']))
+          except KeyError:
+            result.append(-1)
+      else:
+        for id_x in id:
+          ref_area_dict = next((i for i in series_key if i['@id'] in ['REF_AREA', 'ITTER107'] and i['@value'] == id_x), None)
+
+          if ref_area_dict:
+            try:
+              result.append(float(series['generic:Obs']['generic:ObsValue']['@value']))
+            except KeyError:
+              result.append(-1)
+            continue
+
+  print(id, result)
   if len(result) == 0:
     return -1
   elif len(result) == 1:
@@ -542,188 +597,179 @@ print("Valore massimo delle denunce ogni 100.000 abitanti: ", max_denunce_per_ab
 
 """Calcolo pericolosità in percentuale di un comune"""
 
-comune= "Milano"
-id_comune = find_id_comune_by_name(comune)
-print(f'ID Comune ISTAT: {id_comune}')
+def calc_pericolosita(comune):
+  id_comune = find_id_comune_by_name(comune)
+  print(f'ID Comune {comune} ISTAT: {id_comune}')
 
-provincia= trova_provincia_da_comune(comune)
-id_provincia = find_id_regione_by_name(provincia)
-print(f'ID Provincia ISTAT: {id_provincia}')
+  provincia= trova_provincia_da_comune(comune)
+  id_provincia = find_id_regione_by_name(provincia)
+  print(f'ID Provincia {provincia} ISTAT: {id_provincia}')
 
-regione= trova_regione_da_comune(comune)
-id_regione = find_id_regione_by_name(regione)
-print(f'ID Regione ISTAT: {id_regione}')
+  regione= trova_regione_da_comune(comune)
+  id_regione = find_id_regione_by_name(regione)
+  print(f'ID Regione {regione} ISTAT: {id_regione}')
 
-coordinate= trova_coordinate(comune)
-print(f'Coordinate Comune: {coordinate}\n')
+  coordinate= trova_coordinate(comune)
+  #print(f'Coordinate Comune: {coordinate}\n')
 
+  #### Inquinamento Regione
+  inquinamento= trova_valore_per_id(id_regione, Request_Type.INQUINAMENTO.value)
+  #print(f'Inquinamento {regione} con id {id_regione}: {inquinamento}')
 
-#### Inquinamento Regione
-inquinamento= trova_valore_per_id(id_regione, Request_Type.INQUINAMENTO.value)
-print(f'Inquinamento {regione} con id {id_regione}: {inquinamento}')
+  #### Criminalità Regione
+  criminalità= trova_valore_per_id(id_regione, Request_Type.CRIMINALITA.value)
+  #print(f'Criminalità {regione} con id {id_regione}: {criminalità}')
 
-#### Criminalità Regione
-criminalità= trova_valore_per_id(id_regione, Request_Type.CRIMINALITA.value)
-print(f'Criminalità {regione} con id {id_regione}: {criminalità}')
+  #### Denunce per 100000 Abitanti Provincia
+  popolazione= int(trova_valore_per_id(id_provincia, Request_Type.POPOLAZIONE.value))
+  denunce= int(trova_valore_per_id(id_provincia, Request_Type.DENUNCE.value))
+  if (denunce != -1):
+    denunce_per_ab= denunce/popolazione*100000
+  else:
+    denunce_per_ab= min_denunce_per_ab
+  #print(f'Denunce ogni 100.000 abitanti in {provincia} con id {id_provincia}: {denunce_per_ab}')
 
-#### Denunce per 100000 Abitanti Provincia
-popolazione= int(trova_valore_per_id(id_provincia, Request_Type.POPOLAZIONE.value))
-denunce= int(trova_valore_per_id(id_provincia, Request_Type.DENUNCE.value))
-denunce_per_ab= denunce/popolazione*100000
-print(f'Denunce ogni 100.000 abitanti in {provincia} con id {id_provincia}: {denunce_per_ab}')
+  #### Rischio idrogeologico Comune
+  if id_comune is not None:
+    idrogeologicoValues= trova_valore_per_id(id_comune, Request_Type.IDROGEOLOGICO.value)
+  else:
+    idrogeologicoValues= trova_valore_per_id(id_regione, Request_Type.IDROGEOLOGICO.value)
 
-#### Rischio idrogeologico Comune
-idrogeologicoValues= trova_valore_per_id(id_comune, Request_Type.IDROGEOLOGICO.value)
-## L'ordine è HIGH - LOW - MED, in Low è incluso Med, in cui a sua volta è incluso High
-idrogeologicoLow= idrogeologicoValues[1]-idrogeologicoValues[2] # Rimuovo il Med (in cui vi è anche l'high)
-idrogeologicoMed= idrogeologicoValues[2]-idrogeologicoValues[0] # Rimuovo l' High
-idrogeologicoHigh= idrogeologicoValues[0]
-## Trovo superficie comune e calcolo il rischio ponderato
-superficie= trova_valore_per_id(id_comune, Request_Type.SUPERFICIE.value)/100
-rischio_ponderato= idrogeologicoLow*0.5+idrogeologicoMed*1+idrogeologicoHigh*1.5
-rischio_idro_perc= rischio_ponderato/max(superficie, rischio_ponderato)*100
-print(f'Rischio idrogeologico {comune} con id {id_comune}: {rischio_idro_perc}')
+  if (idrogeologicoValues != -1):
+    ## L'ordine è HIGH - LOW - MED, in Low è incluso Med, in cui a sua volta è incluso High
+    idrogeologicoLow= idrogeologicoValues[1]-idrogeologicoValues[2] # Rimuovo il Med (in cui vi è anche l'high)
+    idrogeologicoMed= idrogeologicoValues[2]-idrogeologicoValues[0] # Rimuovo l' High
+    idrogeologicoHigh= idrogeologicoValues[0]
+    ## Trovo superficie comune e calcolo il rischio ponderato
+    superficie= trova_valore_per_id(id_comune, Request_Type.SUPERFICIE.value)/100
+    rischio_ponderato= idrogeologicoLow*0.5+idrogeologicoMed*1+idrogeologicoHigh*1.5
+    rischio_idro_perc= rischio_ponderato/max(superficie, rischio_ponderato)*100
+  else:
+    rischio_idro_perc= 0
+  #print(f'Rischio idrogeologico {comune} con id {id_comune}: {rischio_idro_perc}')
 
-#### Zona Sismica Comune
-near_coords = trova_coordinate_vicine(coordinate[0], coordinate[1], pd.read_csv('Zone Sismiche.csv'))
-zona_sismica = int(near_coords.iloc[0]['Zona Sismica'])
-print(f'Zona Sismica {comune} con id {id_comune}: {zona_sismica}\n')
+  #### Zona Sismica Coordinate
+  near_coords = trova_coordinate_vicine(coordinate[0], coordinate[1], pd.read_csv('Zone Sismiche.csv'))
+  zona_sismica = int(near_coords.iloc[0]['Zona Sismica'])
+  #print(f'Zona Sismica {comune} con id {id_comune}: {zona_sismica}\n')
 
+  #### Calcolo indice di pericolosità
+  ## Normalizzo le denunce --- Avviare il codice per calcolare min e max prima!
+  if (max_denunce_per_ab - min_denunce_per_ab) <= 0:
+      den_normal= 0.0
+  else:
+      den_normal= (denunce_per_ab - min_denunce_per_ab)/(max_denunce_per_ab - min_denunce_per_ab)*100
+  ## Normalizzo la zona sismica
+  sismi_normal= (1-(zona_sismica - 1)/3)*100
 
+  ## Pesi per il calcolo ponderato
+  peso_inquinamento = 0.15
+  peso_criminalita = 0.2
+  peso_denunce = 0.3
+  peso_rischio_idrogeologico = 0.1
+  peso_zona_sismica = 0.25
+  return (
+          peso_inquinamento * (inquinamento if inquinamento != -1 else 0) +
+          peso_criminalita * (criminalità if criminalità != -1 else 0) +
+          peso_denunce * den_normal +
+          peso_rischio_idrogeologico * rischio_idro_perc +
+          peso_zona_sismica * sismi_normal
+      )
 
-#### Calcolo indice di pericolosità
-
-## Normalizzo le denunce
-def normalizza_denunce(denunce, minimo_denunce, massimo_denunce):
-    if (massimo_denunce - minimo_denunce) <= 0:
-        return 0.0
-    else:
-        denunce_normalizzate= (denunce - minimo_denunce)/(massimo_denunce - minimo_denunce)*100
-        return denunce_normalizzate
-## Avviare il codice per calcolare min e max prima!
-den_normal= normalizza_denunce(denunce_per_ab, min_denunce_per_ab , max_denunce_per_ab)
-
-## Normalizzo la zona sismica
-sismi_normal= (1-(zona_sismica - 1)/3)*100
-
-## Pesi per il calcolo ponderato
-peso_inquinamento = 0.15
-peso_criminalita = 0.2
-peso_denunce = 0.3
-peso_rischio_idrogeologico = 0.1
-peso_zona_sismica = 0.25
-
-
-pericolosità = (
-        peso_inquinamento * (inquinamento if inquinamento != -1 else 0) +
-        peso_criminalita * (criminalità if criminalità != -1 else 0) +
-        peso_denunce * den_normal +
-        peso_rischio_idrogeologico * rischio_idro_perc +
-        peso_zona_sismica * sismi_normal
-    )
-
-print(f'La pericolosità di {comune} è: {pericolosità}')
+#print(f'La pericolosità è: {calc_pericolosita("Trento")}')
 
 """Trova Bounding Box di un comune e ricerca numero negozi, ristoranti e scuole<br>
 Purtroppo il limite di pois trovabili è 100, per cui mi limito a cercare in un raggio di X metri solo determinate categorie.
 """
 
-comune= 'Castel San Giorgio'
-bounding_box = get_bounding_box(comune,"have")
-coords= trova_coordinate(comune)
+class Poi_Type(Enum):
+    NEGOZIO = "neg"
+    RISTORANTE = "rist"
+    SCUOLA = "scuola"
 
-if bounding_box:
-    print(f"Bounding box di {comune}: {bounding_box}")
-else:
-    print(f"Bounding box non trovato per {comune}")
+### trova numero poi di un comune in un certo raggio (MAX 100)
+def trova_numero_poi_herev7(comune, poi_type, raggio= None):
+  valid = {"neg", "rist", "scuola"}
+  if poi_type not in valid:
+      raise ValueError("Errore: poi_type must be one of %r." % valid)
+  if raggio is None:
+    if (poi_type == 'neg'): raggio= 1000
+    elif (poi_type == 'rist'): raggio= 200
+    elif (poi_type == 'scuola'): raggio= 1000
 
+  bounding_box = get_bounding_box(comune,"here")
+  coords= trova_coordinate(comune)
 
-API_KEY= "oY1k3tXVkAI8O68lu62eXTEkuOc7TQb6Pwn2S_ZCXKo"
+  if not bounding_box:
+      print(f"Bounding box non trovato per {comune}")
 
-### Trova Negozi
-api_url = (f'https://geocode.search.hereapi.com/v1/browse?'
-f'at={coords[0]},{coords[1]}'
-#f'&in=bbox:{bounding_box[0]},{bounding_box[1]},{bounding_box[2]},{bounding_box[3]}'
-f'&in=circle:{coords[0]},{coords[1]};r=1000'
-#https://www.here.com/docs/bundle/places-search-api-developer-guide/page/topics/place_categories/category-600-shopping.html
-f'&categories=600-6000,600-6100,600-6200,600-6600-0000,600-6700-0000'
-f'&limit=100&apiKey={API_KEY}')
+  API_KEY= "oY1k3tXVkAI8O68lu62eXTEkuOc7TQb6Pwn2S_ZCXKo"
 
-# Effettua la richiesta all'API
-response = requests.get(api_url)
+  ### Trova Negozi
+  if (poi_type == 'neg'):
+    api_url = (f'https://geocode.search.hereapi.com/v1/browse?'
+    f'at={coords[0]},{coords[1]}'
+    #f'&in=bbox:{bounding_box[0]},{bounding_box[1]},{bounding_box[2]},{bounding_box[3]}'
+    f'&in=circle:{coords[0]},{coords[1]};r={raggio}'
+    #https://www.here.com/docs/bundle/places-search-api-developer-guide/page/topics/place_categories/category-600-shopping.html
+    f'&categories=600-6000,600-6100,600-6200,600-6600-0000,600-6700-0000'
+    f'&limit=100&apiKey={API_KEY}')
 
-num= None
-# Verifica se la richiesta ha avuto successo (status code 200)
-if response.status_code == 200:
-    # Estrai l'observation dalla risposta JSON
-    num = len(response.json()["items"])
-
-    if num is not None:
-        print(f"Numero negozi estratto è: {num}")
+    response = requests.get(api_url)
+    num= None
+    if response.status_code == 200:
+        num = len(response.json()["items"])
     else:
-        print(f"Items non trovato nella risposta JSON.")
+        print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
+    return num
 
-else:
-    print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
+  ### Trova Ristoranti
+  elif (poi_type == 'rist'):
+    api_url = (f'https://geocode.search.hereapi.com/v1/browse?'
+    f'at={coords[0]},{coords[1]}'
+    #f'&in=bbox:{bounding_box[0]},{bounding_box[1]},{bounding_box[2]},{bounding_box[3]}'
+    f'&in=circle:{coords[0]},{coords[1]};r={raggio}'
+    #https://www.here.com/docs/bundle/places-search-api-developer-guide/page/topics/place_categories/category-600-shopping.html
+    f'&categories=100-1000-0000'
+    f'&limit=100&apiKey={API_KEY}')
 
-
-### Trova Ristoranti
-api_url = (f'https://geocode.search.hereapi.com/v1/browse?'
-f'at={coords[0]},{coords[1]}'
-#f'&in=bbox:{bounding_box[0]},{bounding_box[1]},{bounding_box[2]},{bounding_box[3]}'
-f'&in=circle:{coords[0]},{coords[1]};r=200'
-#https://www.here.com/docs/bundle/places-search-api-developer-guide/page/topics/place_categories/category-600-shopping.html
-f'&categories=100-1000-0000'
-f'&limit=100&apiKey={API_KEY}')
-
-# Effettua la richiesta all'API
-response = requests.get(api_url)
-
-num= None
-# Verifica se la richiesta ha avuto successo (status code 200)
-if response.status_code == 200:
-    # Estrai l'observation dalla risposta JSON
-    num = len(response.json()["items"])
-
-    if num is not None:
-        print(f"Numero ristoranti estratto è: {num}")
+    response = requests.get(api_url)
+    num= None
+    if response.status_code == 200:
+        num = len(response.json()["items"])
     else:
-        print(f"Items non trovato nella risposta JSON.")
+        print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
+    return num
 
-else:
-    print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
+  ### Trova Scuole
+  elif (poi_type == 'scuola'):
+    api_url = (f'https://geocode.search.hereapi.com/v1/browse?'
+    f'at={coords[0]},{coords[1]}'
+    #f'&in=bbox:{bounding_box[0]},{bounding_box[1]},{bounding_box[2]},{bounding_box[3]}'
+    f'&in=circle:{coords[0]},{coords[1]};r={raggio}'
+    #https://www.here.com/docs/bundle/places-search-api-developer-guide/page/topics/place_categories/category-600-shopping.html
+    f'&categories=800-8200-0000,800-8200-0173,800-8200-0174'
+    f'&limit=100&apiKey={API_KEY}')
 
-### Trova Scuole
-api_url = (f'https://geocode.search.hereapi.com/v1/browse?'
-f'at={coords[0]},{coords[1]}'
-#f'&in=bbox:{bounding_box[0]},{bounding_box[1]},{bounding_box[2]},{bounding_box[3]}'
-f'&in=circle:{coords[0]},{coords[1]};r=1000'
-#https://www.here.com/docs/bundle/places-search-api-developer-guide/page/topics/place_categories/category-600-shopping.html
-f'&categories=800-8200-0000,800-8200-0173,800-8200-0174'
-f'&limit=100&apiKey={API_KEY}')
-
-# Effettua la richiesta all'API
-response = requests.get(api_url)
-
-num= None
-# Verifica se la richiesta ha avuto successo (status code 200)
-if response.status_code == 200:
-    # Estrai l'observation dalla risposta JSON
-    num = len(response.json()["items"])
-
-    if num is not None:
-        print(f"Numero scuole estratto è: {num}")
+    response = requests.get(api_url)
+    num= None
+    if response.status_code == 200:
+        num = len(response.json()["items"])
     else:
-        print(f"Items non trovato nella risposta JSON.")
+        print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
+    return num
 
-else:
-    print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
+#result= trova_numero_poi_herev7('Milano', Poi_Type.NEGOZIO.value)
+#print(f'Il numero di {Poi_Type.NEGOZIO.name} è: {result}')
 
 """In questo codice invece provo ad usare overpass, ma in caso di comuni con pochi dati, questo risulterà inaffidabile.<br>
 Infatti spesso il codice soprastante anche usando solo un certo raggio e certe categorie, riesce a trovare più negozi in un certo paese.
 """
 
-def trova_numero_negozi(bbox_query):
+def trova_numero_negozi_overpass(comune):
+    bbox = get_bounding_box(comune,"overpass")
+    bbox_query = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
+
     overpass_endpoint = "https://overpass-api.de/api/interpreter"
 
     # Definisci la query Overpass
@@ -751,24 +797,117 @@ def trova_numero_negozi(bbox_query):
 
     return numero_negozi
 
-#specifica bbox
-comune= 'Castel San Giorgio'
-bbox = get_bounding_box(comune,"overpass")
-
-bbox_query = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
-
-# Trova il numero di negozi nelle coordinate specificate
-numero_negozi_trovati = trova_numero_negozi(bbox_query)
-
-# Stampa il risultato
+# Trova il numero di negozi del comune
+numero_negozi_trovati = trova_numero_negozi_overpass('Milano')
 print(f"Numero di negozi nel bbox specificato: {numero_negozi_trovati}")
 
-"""Creazione dataset IdQ province con dati assegnati"""
+"""Creazione dataset IdQ Comuni con dati assegnati<br>
+**ATTENZIONE: Il file iniziale usato è stato modificato a mano per far combaciare i comuni con le varie risorse disponibili**
+"""
 
-province= pd.read_csv('IdQ_Province.csv')
-print(province)
+import os.path
 
-province[['Latitudine', 'Longitudine']] = province['Provincia'].apply(lambda provincia: pd.Series(trova_coordinate(provincia)))
+if not(os.path.isfile('IdQ_Com_Coords.csv')):
+  idq_com= pd.read_csv('IdQ_Comuni.csv')
+  idq_com[['Latitudine', 'Longitudine']] = idq_com['Comune'].apply(lambda comune: pd.Series(trova_coordinate(comune)))
+  print(idq_com)
+  idq_com[['Comune', 'Latitudine', 'Longitudine', 'IdQ']].to_csv("IdQ_Com_Coords.csv", index=False)
 
-print(province)
-province[['Provincia', 'Latitudine', 'Longitudine', 'IdQ']].to_csv("IdQ_Prov_Coords.csv", index=False)
+if not(os.path.isfile('IdQ_Com_Peric.csv')):
+  idq_com_peric= pd.read_csv('IdQ_Com_Coords.csv')
+  idq_com_peric['Pericolosità'] = idq_com_peric['Comune'].apply(lambda com: calc_pericolosita(com))
+  print(idq_com_peric)
+  idq_com_peric.to_csv("IdQ_Com_Peric.csv", index=False)
+
+def costo_vita(valore):
+    if valore < 2100:
+        return "BASSO"
+    elif valore > 2700:
+        return "ALTO"
+    else:
+        return "MEDIO"
+if not(os.path.isfile('IdQ_Com_Costo.csv')):
+  idq_com_costo= pd.read_csv('IdQ_Com_Peric.csv')
+  idq_com_costo['Costo Vita'] = idq_com_costo['Comune'].apply(lambda comune: costo_vita(
+      trova_valore_per_id(
+        find_id_regione_by_name(
+          trova_regione_da_comune(comune)
+        ), Request_Type.SPESA_MEDIA.value
+      )
+    )
+  )
+  print(idq_com_costo)
+  idq_com_costo.to_csv("IdQ_Com_Costo.csv", index=False)
+
+if not(os.path.isfile('IdQ_Com_Abit.csv')):
+  idq_com_abit= pd.read_csv('IdQ_Com_Costo.csv')
+  idq_com_abit['Abitanti'] = idq_com_abit['Comune'].apply(lambda comune: trova_valore_per_id(
+        find_id_comune_by_name(comune), Request_Type.POPOLAZIONE.value)
+  )
+  print(idq_com_abit)
+  idq_com_abit.to_csv("IdQ_Com_Abit.csv", index=False)
+
+if not(os.path.isfile('IdQ_Com_Sup.csv')):
+  idq_com_sup= pd.read_csv('IdQ_Com_Abit.csv')
+  idq_com_sup['Superficie'] = idq_com_sup['Comune'].apply(lambda comune: trova_valore_per_id(
+        find_id_comune_by_name(comune), Request_Type.SUPERFICIE.value)/100
+  )
+  print(idq_com_sup)
+  idq_com_sup.to_csv("IdQ_Com_Sup.csv", index=False)
+
+if not(os.path.isfile('IdQ_Com_AbitPerKm2.csv')):
+  idq_com_AbitPerKm2= pd.read_csv('IdQ_Com_Sup.csv')
+  idq_com_AbitPerKm2['Abitanti per Km2'] = idq_com_AbitPerKm2['Comune'].apply(lambda comune:
+          idq_com_AbitPerKm2.loc[idq_com_AbitPerKm2['Comune'] == comune, 'Abitanti'].values[0] /
+          idq_com_AbitPerKm2.loc[idq_com_AbitPerKm2['Comune'] == comune, 'Superficie'].values[0]
+  )
+  print(idq_com_AbitPerKm2)
+  idq_com_AbitPerKm2.to_csv("IdQ_Com_AbitPerKm2.csv", index=False)
+
+
+def stima_poi_totali(comune, poi_type, superficie, raggio= None):
+  valid = {"neg", "rist", "scuola"}
+  if poi_type not in valid:
+      raise ValueError("Errore: poi_type must be one of %r." % valid)
+  if raggio is None:
+    if (poi_type == 'neg'): raggio= 1000
+    elif (poi_type == 'rist'): raggio= 200
+    elif (poi_type == 'scuola'): raggio= 1000
+
+  num_poi= trova_numero_poi_herev7(comune, poi_type, raggio)
+  if(num_poi == None or num_poi == 0):
+    num_poi= 1
+  area_ricerca= (np.pi * raggio*raggio)/(10**6)
+  stima= int(superficie/area_ricerca * num_poi)
+  print(comune, poi_type, num_poi, stima)
+  return stima
+
+if not(os.path.isfile('IdQ_Com_Negozi.csv')):
+  idq_com_neg= pd.read_csv('IdQ_Com_AbitPerKm2.csv')
+  idq_com_neg['Num Negozi'] = idq_com_neg['Comune'].apply(lambda comune:
+      stima_poi_totali(comune,
+                       Poi_Type.NEGOZIO.value,
+                       idq_com_neg.loc[idq_com_neg['Comune'] == comune, 'Superficie'].values[0])
+  )
+  print(idq_com_neg)
+  idq_com_neg.to_csv("IdQ_Com_Negozi.csv", index=False)
+
+if not(os.path.isfile('IdQ_Com_Rist.csv')):
+  idq_com_rist= pd.read_csv('IdQ_Com_Negozi.csv')
+  idq_com_rist['Num Ristoranti'] = idq_com_rist['Comune'].apply(lambda comune:
+      stima_poi_totali(comune,
+                       Poi_Type.RISTORANTE.value,
+                       idq_com_rist.loc[idq_com_rist['Comune'] == comune, 'Superficie'].values[0])
+  )
+  print(idq_com_rist)
+  idq_com_rist.to_csv("IdQ_Com_Rist.csv", index=False)
+
+if not(os.path.isfile('IdQ_Com_Final.csv')):
+  idq_com_final= pd.read_csv('IdQ_Com_Rist.csv')
+  idq_com_final['Num Scuole'] = idq_com_final['Comune'].apply(lambda comune:
+      stima_poi_totali(comune,
+                       Poi_Type.SCUOLA.value,
+                       idq_com_final.loc[idq_com_final['Comune'] == comune, 'Superficie'].values[0])
+  )
+  print(idq_com_final)
+  idq_com_final.to_csv("IdQ_Com_Final.csv", index=False)
