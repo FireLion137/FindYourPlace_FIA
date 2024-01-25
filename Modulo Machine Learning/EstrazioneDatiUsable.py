@@ -5,6 +5,7 @@ import re
 import time
 import requests
 from enum import Enum
+import random
 
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
@@ -13,6 +14,8 @@ from geopy.exc import GeocoderTimedOut, GeocoderQuotaExceeded
 from sklearn.neighbors import BallTree
 import numpy as np
 import pandas as pd
+
+from Disegna_box import *
 
 with open('File Dati/CL_ITTER107.json', 'r') as file:
     data = json.load(file)
@@ -252,14 +255,52 @@ def get_bounding_box(comune, bbox_type):
     loc = trova_location(comune)
 
     if loc:
-        bounding_box = loc.raw.get('boundingbox', None)
-        if bounding_box:
+        bbox = loc.raw.get('boundingbox', None)
+        if bbox:
+            # Converti i valori del bounding box in float
+            bounding_box = [float(coord) for coord in bbox]
+
             if bbox_type=="here":
               return bounding_box[2], bounding_box[0], bounding_box[3], bounding_box[1]
             elif bbox_type=="overpass":
               return bounding_box[0], bounding_box[2], bounding_box[1], bounding_box[3]
 
     return None
+
+
+def get_citta_from_bbox(bbox, num_citta):
+
+    # Generazione casuale di coordinate geografiche nel bounding box
+    citta_generate = []
+    for _ in range(num_citta):
+        lat = (random.uniform(float(bbox[0]), float(bbox[1])))
+        lon = (random.uniform(float(bbox[2]), float(bbox[3])))
+        citta_generate.append((lat, lon))
+
+    # Restituisci le città generate
+    return citta_generate
+
+
+def get_citta_in_bbox(comune, bbox_type, n):
+    # Ottenere il bounding box
+    bbox = get_bounding_box(comune, bbox_type)
+    if bbox:
+        # Generare città casuali nel bounding box
+        citta_generate = get_citta_from_bbox(bbox, n)
+
+        # Ottenere nomi delle città basandosi sulle coordinate
+        geolocator = Nominatim(user_agent="my_geocoder")
+        lista_citta = []
+
+        for lat, lon in citta_generate:
+            location = geolocator.reverse((lat, lon), language='it')
+            if location and location.address:
+                lista_citta.append(location.address)
+
+        return lista_citta
+
+    return None
+
 
 # Funzione per ottenere le coordinate più vicine in un dataframe
 def trova_coordinate_vicine(latitudine, longitudine, dataframe):
@@ -506,6 +547,7 @@ def trova_numero_poi_herev7(comune, poi_type, raggio= None):
     elif (poi_type == 'scuola'): raggio= 1000
 
   bounding_box = get_bounding_box(comune,"here")
+  draw_bbox_on_map(bounding_box)
   coords= trova_coordinate(comune)
 
   if not bounding_box:
