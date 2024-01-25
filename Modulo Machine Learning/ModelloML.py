@@ -4,12 +4,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 
-
-
 # Importazione DataFrame
-data = pd.read_csv('File Dati/IdQ_Com_Final.csv')
-
-df = pd.DataFrame(data)
+df = pd.DataFrame(pd.read_csv('File Dati/IdQ_Com_Final.csv'))
 
 # Non posso usare string, converto ALTO, MEDIO, BASSO in valori numerici: 1, 2, 3
 costoVita_mapping = {"BASSO": 1, "MEDIO": 2, "ALTO": 3}
