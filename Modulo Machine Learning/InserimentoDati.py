@@ -36,3 +36,16 @@ def ottieni_dati_citta():
     df_citta = pd.DataFrame(nuova_citta)
     qualita_nuova_citta = model.predict(df_citta)
     print("Qualità stimata: ", qualita_nuova_citta)
+
+
+def ottieni_dati_zona():
+    # citta = (input("Inserisci il nome del comune che ti interessa: "))
+    citta = "Padova"
+    print("Coordinate riferimento: ", trova_coordinate(citta))
+    if not find_id_comune_by_name(citta):
+        print("Città non trovata, riprova")
+        ottieni_dati_zona()
+
+    lista_citta = get_citta_in_bbox(citta, "here", 10)
+    print(lista_citta)
+
