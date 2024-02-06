@@ -260,63 +260,77 @@ def get_bounding_box(comune, bbox_type):
             # Converti i valori del bounding box in float
             bounding_box = [float(coord) for coord in bbox]
 
-            if bbox_type=="here":
+            if bbox_type == "here":
                 return bounding_box[2], bounding_box[0], bounding_box[3], bounding_box[1]
 
-            elif bbox_type=="overpass":
+            elif bbox_type == "overpass":
                 return bounding_box[0], bounding_box[2], bounding_box[1], bounding_box[3]
 
     return None
 
 
-def get_citta_from_bbox(bbox, num_citta):
+def get_bounding_box_custom(comune, bbox_type, bbox_range):
+    valid = {"here", "overpass"}
+    if bbox_type not in valid:
+        raise ValueError("bbox_type must be one of %r." % valid)
 
-    # Generazione casuale di coordinate geografiche nel bounding box
-    citta_generate = []
-    for _ in range(num_citta):
-        lat = (random.uniform(float(bbox[3]), float(bbox[1])))
-        lon = (random.uniform(float(bbox[0]), float(bbox[2])))
-        citta_generate.append((lat, lon))
+    if bbox_range <= 0:
+        raise ValueError("bbox_range must be a positive value.")
 
-    # Restituisci le città generate
-    return citta_generate
+    lat, lon = trova_coordinate(comune)
+    half_range = bbox_range / 2
+
+    if bbox_type == "here":
+        north = lat + half_range
+        south = lat - half_range
+        east = lon + half_range
+        west = lon - half_range
+    elif bbox_type == "overpass":
+        north = lat + half_range
+        south = lat - half_range
+        east = lon + half_range
+        west = lon - half_range
+    else:
+        return None
+
+    # Scambiati north e west altrimenti la funzione Disegna_box non puo accettare le coordinate
+    return west, south, east, north
 
 
-def get_citta_in_bbox(comune, bbox_type, n):
-    # Ottenere il bounding box
-    bbox = get_bounding_box(comune, bbox_type)
-    draw_bbox_on_map(bbox)
-    print(bbox)
+def get_citta_in_bbox(bbox, num_citta):
 
     if bbox:
-        # Generare città casuali nel bounding box
-        citta_generate = get_citta_from_bbox(bbox, n)
-        print("Coordinate:", citta_generate)
+        draw_bbox_on_map(bbox)
+        print(bbox)
 
-        # Ottenere nomi delle città basandosi sulle coordinate
-        geolocator = Nominatim(user_agent="my_geocoder")
+        # Generazione casuale di coordinate geografiche nel bounding box
         lista_citta = []
+        while len(lista_citta) < num_citta:
+            lat = (random.uniform(float(bbox[3]), float(bbox[1])))
+            lon = (random.uniform(float(bbox[0]), float(bbox[2])))
 
-        for lat, lon in citta_generate:
+            # Ottenere nomi delle città basandosi sulle coordinate
+            geolocator = Nominatim(user_agent="my_geocoder")
+
             location = geolocator.reverse((lat, lon), language='it')
             if location:
                 city_name = None
 
                 # Cerca il nome della città in vari campi
-                if location.raw.get('address', None):
+                if location.raw.get('address', None) and location.raw['address'].get('country') == 'Italia':
                     city_name = location.raw['address'].get('city', None)
-                if not city_name and location.raw.get('address', None):
-                    city_name = location.raw['address'].get('town', None)
-                if not city_name and location.raw.get('address', None):
-                    city_name = location.raw['address'].get('village', None)
 
-                # Aggiungi il nome della città alla lista solo se è diverso dalla città specifica
-                if city_name and city_name != comune:
+                    if not city_name:
+                        city_name = location.raw['address'].get('town', None)
+
+                    if not city_name:
+                        city_name = location.raw['address'].get('village', None)
+
+                # Aggiungi il nome della città alla lista se valido
+                if city_name is not None:
                     lista_citta.append(city_name)
 
         return lista_citta
-
-    return None
 
 
 # Funzione per ottenere le coordinate più vicine in un dataframe
