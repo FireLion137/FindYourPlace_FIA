@@ -162,9 +162,7 @@ def calc_spesa_media(regione):
 
 
 # Trova popolazione da comune
-def trova_popolazione(comune):
-    # Trova id tramite nome comune
-    id_comune_found = find_id_comune_by_name(comune)
+def trova_popolazione(id_comune_found):
 
     # Costruisci l'URL con l'id trovato
     api_url = f'https://sdmx.istat.it/SDMXWS/rest/data/22_289/.TOTAL.{id_comune_found}.9.99.?startPeriod=2023&format=jsondata'
@@ -185,9 +183,7 @@ def trova_popolazione(comune):
         print(f"Errore nella richiesta all'API. Codice di stato: {response.status_code}")
 
 #### Superficie di un comune
-def trova_sup(comune):
-
-    id_comune_found = find_id_comune_by_name(comune)
+def trova_sup(id_comune_found):
 
     # Costruisci l'URL con l'id trovato
     api_url = f'https://sdmx.istat.it/SDMXWS/rest/data/729_1050/A.{id_comune_found}.TOTAREA?startPeriod=2023&format=jsondata'
@@ -269,7 +265,7 @@ def get_bounding_box(comune, bbox_type):
     return None
 
 
-def get_bounding_box_custom(comune, bbox_type, bbox_range):
+def get_bounding_box_custom(lat, lon, bbox_type, bbox_range):
     valid = {"here", "overpass"}
     if bbox_type not in valid:
         raise ValueError("bbox_type must be one of %r." % valid)
@@ -277,7 +273,6 @@ def get_bounding_box_custom(comune, bbox_type, bbox_range):
     if bbox_range <= 0:
         raise ValueError("bbox_range must be a positive value.")
 
-    lat, lon = trova_coordinate(comune)
     half_range = bbox_range / 2
 
     if bbox_type == "here":
@@ -333,6 +328,7 @@ def get_citta_in_bbox(bbox, num_citta):
         return lista_citta
 
 
+
 # Funzione per ottenere le coordinate più vicine in un dataframe
 def trova_coordinate_vicine(latitudine, longitudine, dataframe):
     bt = BallTree(np.deg2rad(dataframe[['LAT', 'LON']].values), metric='haversine')
@@ -341,6 +337,7 @@ def trova_coordinate_vicine(latitudine, longitudine, dataframe):
     nearest = dataframe.iloc[indici[0]]
 
     return nearest[['LAT', 'LON', 'Zona Sismica']]
+
 
 # Funzione per ottenere la regione dal comune
 def trova_regione_da_comune(comune):
