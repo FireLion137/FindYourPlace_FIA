@@ -80,19 +80,26 @@ def ottieni_dati_citta(citta):
         print("Passo 1")
         pericolosita = calc_pericolosita(citta)
         print("Passo 2")
-        costo_vit = calc_spesa_media(trova_regione_da_comune(citta))
+        costo_vitarealvalue = trova_valore_per_id(id_citta, Request_Type.SPESA_MEDIA.value)
+        if costo_vitarealvalue < 2100:
+            costo_vit = 1
+        elif costo_vitarealvalue > 2700:
+            costo_vit = 3
+        else:
+            costo_vit = 2
+
         print("Passo 3")
-        abitanti = trova_popolazione(id_citta)
+        abitanti = trova_valore_per_id(id_citta, Request_Type.POPOLAZIONE.value)
         print("Passo 4")
-        superfice = trova_sup(id_citta)
+        superfice = trova_valore_per_id(id_citta, Request_Type.SUPERFICIE.value)
         print("Passo 5")
         abitanti_per_km2 = abitanti / superfice
         print("Passo 6")
-        num_negozi_km2 = trova_numero_poi_herev7(citta, Poi_Type.NEGOZIO.value) / superfice
+        num_negozi_km2 = stima_poi_totali(citta, Poi_Type.NEGOZIO.value, superfice) / superfice
         print("Passo 7")
-        num_ristoranti_km2 = trova_numero_poi_herev7(citta, Poi_Type.RISTORANTE.value) / superfice
+        num_ristoranti_km2 = stima_poi_totali(citta, Poi_Type.RISTORANTE.value, superfice) / superfice
         print("Passo 8")
-        num_scuole_km2 = trova_numero_poi_herev7(citta, Poi_Type.SCUOLA.value) / superfice
+        num_scuole_km2 = stima_poi_totali(citta, Poi_Type.SCUOLA.value, superfice) / superfice
         print("Passo 9")
         # Creare un DataFrame con i dati inseriti dall'utente
         nuova_citta = pd.DataFrame({

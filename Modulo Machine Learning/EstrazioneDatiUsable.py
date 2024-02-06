@@ -675,3 +675,21 @@ def trova_numero_negozi_overpass(comune):
 # Trova il numero di negozi del comune
 # numero_negozi_trovati = trova_numero_negozi_overpass('Milano')
 # print(f"Numero nel bbox specificato: {numero_negozi_trovati}")
+
+
+def stima_poi_totali(comune, poi_type, superficie, raggio= None):
+    valid = {"neg", "rist", "scuola"}
+    if poi_type not in valid:
+        raise ValueError("Errore: poi_type must be one of %r." % valid)
+    if raggio is None:
+        if (poi_type == 'neg'): raggio= 1000
+        elif (poi_type == 'rist'): raggio= 200
+        elif (poi_type == 'scuola'): raggio= 1000
+
+    num_poi= trova_numero_poi_herev7(comune, poi_type, raggio)
+    if(num_poi == None or num_poi == 0):
+        num_poi= 1
+    area_ricerca= (np.pi * raggio*raggio)/(10**6)
+    stima= int(superficie/area_ricerca * num_poi)
+    print(comune, poi_type, num_poi, stima)
+    return stima
