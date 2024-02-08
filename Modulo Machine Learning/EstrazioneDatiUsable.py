@@ -14,6 +14,7 @@ from geopy.exc import GeocoderTimedOut, GeocoderQuotaExceeded
 from sklearn.neighbors import BallTree
 import numpy as np
 import pandas as pd
+import overpass
 
 from Disegna_box import *
 
@@ -42,7 +43,7 @@ def find_id_comune_by_name(name):
         if code['name']['it'] == name and re.match("^\\d{6}$", code['id']):
             result.append(code['id'])
 
-    print(name, result)
+    # print(name, result)
     if len(result) == 0:
         return None
     elif len(result) == 1:
@@ -265,7 +266,9 @@ def get_bounding_box(comune, bbox_type):
     return None
 
 
-def get_bounding_box_custom(lat, lon, bbox_type, bbox_range):
+def get_bounding_box_custom(lat, lon, bbox_type, bbox_range_km):
+    bbox_range = bbox_range_km / 111  # conversione da km a gradi, conversione aprossimativa, imprecisa verso i poli
+
     valid = {"here", "overpass"}
     if bbox_type not in valid:
         raise ValueError("bbox_type must be one of %r." % valid)
@@ -275,24 +278,79 @@ def get_bounding_box_custom(lat, lon, bbox_type, bbox_range):
 
     half_range = bbox_range / 2
 
+    max_lat = lat + half_range
+    min_lat = lat - half_range
+    max_lon = lon + half_range
+    min_lon = lon - half_range
+
     if bbox_type == "here":
-        north = lat + half_range
-        south = lat - half_range
-        east = lon + half_range
-        west = lon - half_range
+        return min_lon, min_lat, max_lon, max_lat
+
     elif bbox_type == "overpass":
-        north = lat + half_range
-        south = lat - half_range
-        east = lon + half_range
-        west = lon - half_range
+        return min_lat, min_lon, max_lat, max_lon
+
     else:
         return None
 
-    # Scambiati north e west altrimenti la funzione Disegna_box non puo accettare le coordinate
-    return west, south, east, north
+
+def get_citta_bbox(bbox, raggio):
+    draw_bbox_on_map(bbox)  # Crea mappa per visualizzare bbox
+
+    if raggio <= 10:
+        target = 10  # cerco minimo 10 citta
+
+    else:
+        target = round((raggio / 150) * 30)  # piu grande il raggio, piu citta cerco (150 mappato in 30)
+
+    min_lat, min_lon, max_lat, max_lon = bbox
+
+    api = overpass.API()
+    query = f"node['place' = 'city']({min_lat},{min_lon},{max_lat},{max_lon});"
+    response = api.get(query)
+    citta_trovate = []
+
+    # Estrai le informazioni desiderate, cerco prima citta,
+    # poi paesi, poi villaggi, poi suburb finche non raggiungo target
+    if response["features"]:
+        for feature in response["features"]:
+            nome_citta = feature["properties"]["name"]
+            citta_trovate.append(nome_citta)
+
+    if len(citta_trovate) < target:
+        query = f"node['place' = 'town']({min_lat},{min_lon},{max_lat},{max_lon});"
+        response = api.get(query)
+
+        if response["features"]:
+            for feature in response["features"]:
+                nome_citta = feature["properties"]["name"]
+                citta_trovate.append(nome_citta)
+
+    if len(citta_trovate) < target:
+        query = f"node['place' = 'village']({min_lat},{min_lon},{max_lat},{max_lon});"
+        response = api.get(query)
+
+        if response["features"]:
+            for feature in response["features"]:
+                nome_citta = feature["properties"]["name"]
+                citta_trovate.append(nome_citta)
+
+    if len(citta_trovate) < target:
+        query = f"node['place' = 'suburb']({min_lat},{min_lon},{max_lat},{max_lon});"
+        response = api.get(query)
+
+        if response["features"]:
+            for feature in response["features"]:
+                nome_citta = feature["properties"]["name"]
+                citta_trovate.append(nome_citta)
+
+    if not citta_trovate:
+        print("Nessuna citta trovata")
+        return
+
+    return citta_trovate[:target]  # tronco la lista per non eccedere target nel caso dovesse essere troppo lunga
 
 
-def get_citta_in_bbox(bbox, num_citta):
+def get_citta_in_bbox_obsoleto(bbox, num_citta):
 
     if bbox:
         draw_bbox_on_map(bbox)
@@ -321,9 +379,13 @@ def get_citta_in_bbox(bbox, num_citta):
                     if not city_name:
                         city_name = location.raw['address'].get('village', None)
 
+                print(city_name)
                 # Aggiungi il nome della città alla lista se valido
-                if city_name is not None:
+                if city_name is not None and city_name not in lista_citta:
                     lista_citta.append(city_name)
+
+                else:
+                    print("Gia presente")
 
         return lista_citta
 
@@ -691,5 +753,5 @@ def stima_poi_totali(comune, poi_type, superficie, raggio= None):
         num_poi= 1
     area_ricerca= (np.pi * raggio*raggio)/(10**6)
     stima= int(superficie/area_ricerca * num_poi)
-    print(comune, poi_type, num_poi, stima)
+    # print(comune, poi_type, num_poi, stima)
     return stima
