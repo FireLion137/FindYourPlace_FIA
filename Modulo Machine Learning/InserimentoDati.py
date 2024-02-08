@@ -58,7 +58,6 @@ def ottieni_dati_citta(citta):
             costo_vit = 3
         else:
             costo_vit = 2
-
         abitanti = trova_valore_per_id(id_citta, Request_Type.POPOLAZIONE.value)
         superfice = trova_valore_per_id(id_citta, Request_Type.SUPERFICIE.value)
         num_negozi = stima_poi_totali(citta, Poi_Type.NEGOZIO.value, superfice)
@@ -88,17 +87,13 @@ def stampa_ricerca(parametri):
 
     print(parametri)
 
-    if raggio <= 10:
-        n = 10  # cerco minimo 10 citta
-
-    else:
-        n = round((raggio / 150) * 30)  # piu grande il raggio, piu citta cerco (150 mappato in 30)
-
-    citta_trovate = get_citta_in_bbox(get_bounding_box_custom(latitudine, longitudine, "here", raggio), n)
+    citta_trovate = get_citta_bbox(get_bounding_box_custom(latitudine, longitudine, "overpass", raggio), raggio)
+    print(citta_trovate)
     classifica = []
     fallite = []
     for citta in citta_trovate:
         result = ottieni_dati_citta(citta)
+        print("Citta analizzata")
 
         # Verifica che i dati della città rispettino i criteri specificati
         if (not result.empty and result['Pericolosità'].iloc[0] <= max_pericolosita and
@@ -108,17 +103,18 @@ def stampa_ricerca(parametri):
                 result['Num Scuole'].iloc[0] >= min_scuole):
 
             result['IdQ'] = predict(result)
+            result['Nome'] = citta
             classifica.append(result)
+            print("Aggiunta")
 
         else:
             print("La città non soddisfa i criteri specificati.")
             fallite.append(result)
 
-    if classifica:
-        df_val = pd.concat(classifica, ignore_index=True)  # Concatena i DataFrame nella lista
-        df_val.to_csv('valutazione.csv', index=False)
+    df_val = pd.concat(classifica, ignore_index=True)  # Concatena i DataFrame nella lista
+    df_val.to_csv('valutazione.csv', index=False)
 
-    else:
-        df_fail = pd.concat(fallite, ignore_index=True)
-        df_fail.to_csv('fallimento.csv', index=False)
-        print("Nessuna citta trovata in base ai requisiti")
+    df_fail = pd.concat(fallite, ignore_index=True)
+    df_fail.to_csv('fallimento.csv', index=False)
+    result = df_val.sort_values(by='IdQ', inplace=True)
+    return result
