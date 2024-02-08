@@ -42,4 +42,4 @@ parametri_castellammare_di_stabia = [
     8  # min scuole
 ]
 
-stampa_ricerca(parametri_sorrento)
+print(stampa_ricerca(parametri_sorrento))
