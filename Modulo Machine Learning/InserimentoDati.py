@@ -1,69 +1,41 @@
 import pandas as pd
 
 from EstrazioneDatiUsable import *
+from ModelloML import *
 
 
 # Funzione per ottenere i dati della nuova città dall'utente
-def ricerca_citta():
-    # Range del bbox da creare (rettangolare)
-    dim = float(input("Inserisci il range della ricerca: "))
-    # Numero di citta inserite nell'algoritmo di ricerca
-    n = int(input("Inserisci il numero di alternative che vuoi considerare: "))
+# si aspetta una lista con dentro i parametri
+def input_parameters(parametri):
+    # Estrai i valori dai parametri
+    (raggio, latitudine, longitudine, costo_vita, max_pericolosita,
+     min_abitanti, max_abitanti, min_negozi, min_ristoranti, min_scuole) = parametri
 
-    # Chiedi all'utente di inserire i valori dei parametri o lasciare vuoti
-    latitudine = input("Inserisci la latitudine (Premi Invio per saltare): ")
-    longitudine = input("Inserisci la longitudine (Premi Invio per saltare): ")
+    # Conversione dei valori inseriti
+    latitudine = float(latitudine)
+    longitudine = float(longitudine)
+    pericolosita = float(max_pericolosita)
+    costo_vita = float(costo_vita)
+    min_abitanti = int(min_abitanti)
+    max_abitanti = int(max_abitanti)
+    min_negozi = float(min_negozi)
+    min_ristoranti = float(min_ristoranti)
+    min_scuole = float(min_scuole)
 
-    # Nome del comune cercato
-    stato = True
-    citta = None
-    while stato:
-        citta = (input("Inserisci il nome del comune che ti interessa: "))
-
-        if not find_id_comune_by_name(citta):
-            print("Città non trovata, riprova")
-
-        else:
-            stato = False
-
-    if citta is not None:
-        latitudine, longitudine = trova_coordinate(citta)
-
-    pericolosita = input("Inserisci la pericolosità (Premi Invio per saltare): ")
-    costo_vita = input("Inserisci il costo della vita (Premi Invio per saltare): ")
-    abitanti = input("Inserisci il numero di abitanti (Premi Invio per saltare): ")
-    abitanti_per_km2 = input("Inserisci il numero di abitanti per km2 (Premi Invio per saltare): ")
-    num_negozi_km2 = input("Inserisci il numero di negozi per km2 (Premi Invio per saltare): ")
-    num_ristoranti_km2 = input("Inserisci il numero di ristoranti per km2 (Premi Invio per saltare): ")
-    num_scuole_km2 = input("Inserisci il numero di scuole per km2 (Premi Invio per saltare): ")
-
-    # Converte i valori inseriti in float o li lascia vuoti se l'utente ha premuto Invio
-    latitudine = float(latitudine) if latitudine else 0
-    longitudine = float(longitudine) if longitudine else 0
-    pericolosita = float(pericolosita) if pericolosita else 0
-    costo_vita = float(costo_vita) if costo_vita else 0
-    abitanti = int(abitanti) if abitanti else 0
-    abitanti_per_km2 = float(abitanti_per_km2) if abitanti_per_km2 else 0
-    num_negozi_km2 = float(num_negozi_km2) if num_negozi_km2 else 0
-    num_ristoranti_km2 = float(num_ristoranti_km2) if num_ristoranti_km2 else 0
-    num_scuole_km2 = float(num_scuole_km2) if num_scuole_km2 else 0
-
-    # Creare un DataFrame con i valori inseriti dall'utente
-    nuova_citta = pd.DataFrame({
-        'Nome': [citta],
+    # Creazione di un DataFrame per rappresentare la città cercata con i nuovi criteri
+    parametri_ricerca = pd.DataFrame({
         'Latitudine': [latitudine],
         'Longitudine': [longitudine],
         'Pericolosità': [pericolosita],
         'Costo Vita': [costo_vita],
-        'Abitanti': [abitanti],
-        'Abitanti per Km2': [abitanti_per_km2],
-        'Num Negozi Km2': [num_negozi_km2],
-        'Num Ristoranti Km2': [num_ristoranti_km2],
-        'Num Scuole Km2': [num_scuole_km2]
+        'Min Abitanti': [min_abitanti],
+        'Max Abitanti': [max_abitanti],
+        'Min Negozi': [min_negozi],
+        'Min Ristoranti': [min_ristoranti],
+        'Min Scuole': [min_scuole]
     })
 
-    citta_trovate = get_citta_in_bbox(get_bounding_box_custom(latitudine, longitudine, "here", dim), n)
-    return citta_trovate, nuova_citta
+    return parametri_ricerca
 
 
 def ottieni_dati_citta(citta):
@@ -77,9 +49,8 @@ def ottieni_dati_citta(citta):
 
     else:
         latitudine, longitudine = trova_coordinate(citta)
-        print("Passo 1")
         pericolosita = calc_pericolosita(citta)
-        print("Passo 2")
+
         costo_vitarealvalue = trova_valore_per_id(id_citta, Request_Type.SPESA_MEDIA.value)
         if costo_vitarealvalue < 2100:
             costo_vit = 1
@@ -88,19 +59,12 @@ def ottieni_dati_citta(citta):
         else:
             costo_vit = 2
 
-        print("Passo 3")
         abitanti = trova_valore_per_id(id_citta, Request_Type.POPOLAZIONE.value)
-        print("Passo 4")
         superfice = trova_valore_per_id(id_citta, Request_Type.SUPERFICIE.value)
-        print("Passo 5")
-        abitanti_per_km2 = abitanti / superfice
-        print("Passo 6")
-        num_negozi_km2 = stima_poi_totali(citta, Poi_Type.NEGOZIO.value, superfice) / superfice
-        print("Passo 7")
-        num_ristoranti_km2 = stima_poi_totali(citta, Poi_Type.RISTORANTE.value, superfice) / superfice
-        print("Passo 8")
-        num_scuole_km2 = stima_poi_totali(citta, Poi_Type.SCUOLA.value, superfice) / superfice
-        print("Passo 9")
+        num_negozi = stima_poi_totali(citta, Poi_Type.NEGOZIO.value, superfice)
+        num_ristoranti = stima_poi_totali(citta, Poi_Type.RISTORANTE.value, superfice)
+        num_scuole = stima_poi_totali(citta, Poi_Type.SCUOLA.value, superfice)
+
         # Creare un DataFrame con i dati inseriti dall'utente
         nuova_citta = pd.DataFrame({
             'Latitudine': [latitudine],
@@ -108,55 +72,53 @@ def ottieni_dati_citta(citta):
             'Pericolosità': [pericolosita],
             'Costo Vita': [costo_vit],
             'Abitanti': [abitanti],
-            'Abitanti per Km2': [abitanti_per_km2],
-            'Num Negozi Km2': [num_negozi_km2],
-            'Num Ristoranti Km2': [num_ristoranti_km2],
-            'Num Scuole Km2': [num_scuole_km2]
+            'Superficie': [superfice],
+            'Num Negozi': [num_negozi],
+            'Num Ristoranti': [num_ristoranti],
+            'Num Scuole': [num_scuole]
         })
 
     return nuova_citta
 
 
-def ricerca_simile(df_val, df_citta):
+def stampa_ricerca(parametri):
+    # Estrai i valori dai parametri
+    (raggio, latitudine, longitudine, costo_vita, max_pericolosita,
+     min_abitanti, max_abitanti, min_negozi, min_ristoranti, min_scuole) = parametri
 
-    # Calcola la distanza tra i dati della città e quelli del DataFrame di input
-    df_val['Distanza'] = np.sqrt(
-        (df_val['Latitudine'] - df_citta['Latitudine'].values[0]) ** 2 +
-        (df_val['Longitudine'] - df_citta['Longitudine'].values[0]) ** 2 +
-        (df_val['Pericolosità'] - df_citta['Pericolosità'].values[0]) ** 2 +
-        (df_val['Costo Vita'] - df_citta['Costo Vita'].values[0]) ** 2 +
-        (df_val['Abitanti'] - df_citta['Abitanti'].values[0]) ** 2 +
-        (df_val['Abitanti per Km2'] - df_citta['Abitanti per Km2'].values[0]) ** 2 +
-        (df_val['Num Negozi Km2'] - df_citta['Num Negozi Km2'].values[0]) ** 2 +
-        (df_val['Num Ristoranti Km2'] - df_citta['Num Ristoranti Km2'].values[0]) ** 2 +
-        (df_val['Num Scuole Km2'] - df_citta['Num Scuole Km2'].values[0]) ** 2
-    )
+    print(parametri)
 
-    # Ordina il DataFrame in base alla distanza
-    df_sorted = df_val.sort_values(by=['Distanza'])
+    if raggio <= 10:
+        n = 10  # cerco minimo 10 citta
 
-    # Restituisci le prime 5 città più simili
-    result_df = df_sorted.head(5)
+    else:
+        n = round((raggio / 150) * 30)  # piu grande il raggio, piu citta cerco (150 mappato in 30)
 
-    return result_df
-
-
-def interface():
-    citta_trovate, df_target = ricerca_citta()
-    valutazione = []
-
+    citta_trovate = get_citta_in_bbox(get_bounding_box_custom(latitudine, longitudine, "here", raggio), n)
+    classifica = []
+    fallite = []
     for citta in citta_trovate:
-        dati_citta = ottieni_dati_citta(citta)
-        if dati_citta is not None:
-            valutazione.append(dati_citta)
+        result = ottieni_dati_citta(citta)
 
-    df_val = pd.concat(valutazione, ignore_index=True)  # Concatena i DataFrame nella lista
+        # Verifica che i dati della città rispettino i criteri specificati
+        if (not result.empty and result['Pericolosità'].iloc[0] <= max_pericolosita and
+                min_abitanti <= result['Abitanti'].iloc[0] <= max_abitanti and
+                result['Num Negozi'].iloc[0] >= min_negozi and
+                result['Num Ristoranti'].iloc[0] >= min_ristoranti and
+                result['Num Scuole'].iloc[0] >= min_scuole):
 
-    df_val.to_csv('valutazione.csv', index=False)
-    df_target.to_csv('target.csv', index=False)
+            result['IdQ'] = predict(result)
+            classifica.append(result)
 
-    df_candidates = ricerca_simile(df_val, df_target)
-    print(df_candidates)
+        else:
+            print("La città non soddisfa i criteri specificati.")
+            fallite.append(result)
 
+    if classifica:
+        df_val = pd.concat(classifica, ignore_index=True)  # Concatena i DataFrame nella lista
+        df_val.to_csv('valutazione.csv', index=False)
 
-interface()
+    else:
+        df_fail = pd.concat(fallite, ignore_index=True)
+        df_fail.to_csv('fallimento.csv', index=False)
+        print("Nessuna citta trovata in base ai requisiti")
