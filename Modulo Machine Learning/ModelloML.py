@@ -20,7 +20,7 @@ df['Num Ristoranti Km2'] = df['Num Ristoranti'] / df['Superficie']
 df['Num Scuole Km2'] = df['Num Scuole'] / df['Superficie']
 
 # Separo feature e target
-X = df[['Latitudine', 'Longitudine', 'Pericolosità', 'Costo Vita', 'Abitanti', 'Abitanti per Km2',
+X = df[['Latitudine', 'Longitudine', 'Pericolosità', 'Costo Vita', 'Abitanti',
         'Num Negozi Km2', 'Num Ristoranti Km2', 'Num Scuole Km2']]  # Features
 y = df['IdQ']  # Target
 
@@ -36,11 +36,38 @@ model.fit(X_train, y_train)
 # Effettuare previsioni sul set di test
 y_pred = model.predict(X_test)
 
-'''
-# Valutare le prestazioni del modello
 mse = mean_squared_error(y_test, y_pred)
-print(f'Errore quadratico medio (MSE): {mse}')
-'''
+print(mse)
 
-# Ora puoi utilizzare il modello addestrato per stimare la qualità della vita di un comune
-# fornendo i dati delle regioni e capoluoghi corrispondenti.
+
+def predict(citta):
+    # Estrai i valori dalla DataFrame
+    latitudine = citta['Latitudine'].iloc[0]
+    longitudine = citta['Longitudine'].iloc[0]
+    pericolosita = citta['Pericolosità'].iloc[0]
+    costo_vita = citta['Costo Vita'].iloc[0]
+    abitanti = citta['Abitanti'].iloc[0]
+    superficie = citta['Superficie'].iloc[0]
+    num_negozi = citta['Num Negozi'].iloc[0]
+    num_ristoranti = citta['Num Ristoranti'].iloc[0]
+    num_scuole = citta['Num Scuole'].iloc[0]
+
+    # Calcola i valori per km2
+    abitanti_km2 = abitanti / superficie
+    num_negozi_km2 = num_negozi / superficie
+    num_ristoranti_km2 = num_ristoranti / superficie
+    num_scuole_km2 = num_scuole / superficie
+
+    # Crea un nuovo DataFrame con i valori per km2
+    nuova_citta_km2 = pd.DataFrame({
+        'Latitudine': [latitudine],
+        'Longitudine': [longitudine],
+        'Pericolosità': [pericolosita],
+        'Costo Vita': [costo_vita],
+        'Abitanti': [abitanti],
+        'Num Negozi Km2': [num_negozi_km2],
+        'Num Ristoranti Km2': [num_ristoranti_km2],
+        'Num Scuole Km2': [num_scuole_km2]
+    })
+
+    return round(float(model.predict(nuova_citta_km2)), 2)
