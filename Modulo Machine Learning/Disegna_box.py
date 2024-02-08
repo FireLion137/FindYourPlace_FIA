@@ -3,17 +3,19 @@ import folium
 
 def draw_bbox_on_map(bbox):
 
+    min_lat, min_lon, max_lat, max_lon = bbox  # bbox tipo overpass
+
     if bbox:
         # Calcola il centro del bounding box
-        center_lat = (bbox[1] + bbox[3]) / 2
-        center_lon = (bbox[0] + bbox[2]) / 2
+        center_lat = (min_lat + max_lat) / 2
+        center_lon = (min_lon + max_lon) / 2
 
         # Crea la mappa centrata sul bounding box
         map_object = folium.Map(location=[center_lat, center_lon], zoom_start=10)
 
         # Aggiungi il bounding box come rettangolo alla mappa
         folium.Rectangle(
-            bounds=[[bbox[3], bbox[2]], [bbox[1], bbox[0]]],
+            bounds=[[max_lat, max_lon], [min_lat, min_lon]],
             color='blue',
             fill=True,
             fill_color='blue',
