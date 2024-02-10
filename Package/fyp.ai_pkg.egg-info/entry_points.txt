@@ -1,0 +1,2 @@
+[console_scripts]
+test = fyp_pkg.main:main
