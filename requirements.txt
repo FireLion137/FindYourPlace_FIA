@@ -1,0 +1,10 @@
+joblib
+pandas
+folium
+numpy
+scikit-learn
+requests
+overpass
+geopy
+setuptools
+xmltodict
