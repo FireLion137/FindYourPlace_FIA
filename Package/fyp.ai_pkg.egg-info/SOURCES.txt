@@ -7,14 +7,12 @@ fyp.ai_pkg.egg-info/dependency_links.txt
 fyp.ai_pkg.egg-info/entry_points.txt
 fyp.ai_pkg.egg-info/requires.txt
 fyp.ai_pkg.egg-info/top_level.txt
-fyp_pkg/Disegna_box.py
 fyp_pkg/EstrazioneDatiUsable.py
 fyp_pkg/InserimentoDati.py
-fyp_pkg/Modello ML - SUP.py
 fyp_pkg/ModelloML.py
-fyp_pkg/TrainingModel.py
 fyp_pkg/__init__.py
 fyp_pkg/main.py
+fyp_pkg/Database/Bagging_Regression.pkl
 fyp_pkg/Database/CL_ITTER107.json
 fyp_pkg/Database/IdQ_Com_Final.csv
 fyp_pkg/Database/Zone Sismiche.csv
@@ -27,12 +25,3 @@ fyp_pkg/Database/popolazione.json
 fyp_pkg/Database/rischioIdrogeologicoComuni.json
 fyp_pkg/Database/spesaMediaRegioni.json
 fyp_pkg/Database/superficieComuni.json
-fyp_pkg/Trained_Models/Bagging_Regression.pkl
-fyp_pkg/Trained_Models/Decision_Tree.pkl
-fyp_pkg/Trained_Models/Gradient_Boosting_Regression.pkl
-fyp_pkg/Trained_Models/Lasso_Regression.pkl
-fyp_pkg/Trained_Models/Linear_Regression.pkl
-fyp_pkg/Trained_Models/Random_Forest.pkl
-fyp_pkg/Trained_Models/Ridge_Regression.pkl
-fyp_pkg/Trained_Models/Support_Vector_Machine.pkl
-fyp_pkg/Trained_Models/__init__.py

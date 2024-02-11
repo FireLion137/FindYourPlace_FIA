@@ -34,7 +34,7 @@ def predict(citta):
     # trained_model = joblib.load('Trained_Models/Bagging_Regression.pkl')
 
     # Leggi il file binario
-    with resources.path("fyp_pkg.Trained_Models", "Bagging_Regression.pkl") as file_path:
+    with resources.path("fyp_pkg.Database", "Bagging_Regression.pkl") as file_path:
         # Carica il modello utilizzando joblib
         trained_model = joblib.load(file_path)
 

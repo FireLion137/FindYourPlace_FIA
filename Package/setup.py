@@ -16,7 +16,7 @@ setup(
     license='MIT',
     classifiers=classifiers,
     packages=find_packages(),
-    package_data={'fyp_pkg': ['Database/*', 'Trained_Models/*.pkl']},
+    package_data={'fyp_pkg': ['Database/*']},
     include_package_data=True,
     entry_points={
         'console_scripts': [
