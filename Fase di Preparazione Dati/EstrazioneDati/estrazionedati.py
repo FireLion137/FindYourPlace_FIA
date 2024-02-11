@@ -544,7 +544,7 @@ else:
 
 """Codice per convertire xml in json"""
 
-!pip install xmltodict
+
 import xmltodict
 
 with open("file.xml") as xml_file:

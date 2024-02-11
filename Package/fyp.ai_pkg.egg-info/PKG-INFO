@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: fyp.ai_pkg
+Version: 1.0.0
+Summary: Pkg del progetto FIA
+Home-page: https://github.com/Pietro1377/FindYourPlace_FIA
+Author: <Lorenzo Castellano>
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Education
+Classifier: Operating System :: Win11
+Classifier: Programming Language :: Python
+License-File: LICENSE
+Requires-Dist: joblib
+Requires-Dist: pandas
+Requires-Dist: folium
+Requires-Dist: numpy
+Requires-Dist: scikit-learn
+Requires-Dist: requests
+Requires-Dist: overpass
+Requires-Dist: geopy
+Requires-Dist: setuptools
+Requires-Dist: xmltodict

@@ -1,0 +1,27 @@
+LICENSE
+README.md
+setup.py
+fyp.ai_pkg.egg-info/PKG-INFO
+fyp.ai_pkg.egg-info/SOURCES.txt
+fyp.ai_pkg.egg-info/dependency_links.txt
+fyp.ai_pkg.egg-info/entry_points.txt
+fyp.ai_pkg.egg-info/requires.txt
+fyp.ai_pkg.egg-info/top_level.txt
+fyp_pkg/EstrazioneDatiUsable.py
+fyp_pkg/InserimentoDati.py
+fyp_pkg/ModelloML.py
+fyp_pkg/__init__.py
+fyp_pkg/main.py
+fyp_pkg/Database/Bagging_Regression.pkl
+fyp_pkg/Database/CL_ITTER107.json
+fyp_pkg/Database/IdQ_Com_Final.csv
+fyp_pkg/Database/Zone Sismiche.csv
+fyp_pkg/Database/__init__.py
+fyp_pkg/Database/criminalitaRegioni.json
+fyp_pkg/Database/denunceProvince.json
+fyp_pkg/Database/inquinamentoRegioni.json
+fyp_pkg/Database/italiaMedianaSismi.csv
+fyp_pkg/Database/popolazione.json
+fyp_pkg/Database/rischioIdrogeologicoComuni.json
+fyp_pkg/Database/spesaMediaRegioni.json
+fyp_pkg/Database/superficieComuni.json
