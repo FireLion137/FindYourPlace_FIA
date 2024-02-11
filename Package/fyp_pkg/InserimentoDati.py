@@ -1,5 +1,5 @@
-from src.EstrazioneDatiUsable import *
-from src.ModelloML import *
+from fyp_pkg.EstrazioneDatiUsable import *
+from fyp_pkg.ModelloML import *
 
 
 def ottieni_dati_citta(citta):

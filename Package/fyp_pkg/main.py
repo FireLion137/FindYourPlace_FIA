@@ -1,4 +1,4 @@
-from src.InserimentoDati import *
+from fyp_pkg.InserimentoDati import *
 
 parametri_milano = [
     1,  # raggio in km
