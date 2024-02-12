@@ -4,7 +4,7 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, V
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LinearRegression, Lasso, Ridge
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, root_mean_squared_error, mean_absolute_percentage_error
 import pandas as pd
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
@@ -50,7 +50,12 @@ for name, model in models.items():
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
     mse = mean_squared_error(y_test, y_pred)
-    print(f"{name}: Mean Squared Error - {mse}")
+    print(f"\n{name}: Mean Squared Error - {mse}")
+    rmse = root_mean_squared_error(y_test, y_pred)
+    print(f"{name}: Root Mean Squared Error - {rmse}")
+    mape = mean_absolute_percentage_error(y_test, y_pred)
+    print(f"{name}: Mean Absolute Percentage Error - {mape}")
+    print('Accuracy:', round(100*(1 - mape), 2))
 
     scores = cross_val_score(model, X, y, cv=5, scoring='neg_mean_squared_error')
     mse_scores = -scores
@@ -81,7 +86,13 @@ ensemble_model = VotingRegressor([('rf', rf_model), ('gb', gb_model)])
 ensemble_model.fit(X_train, y_train)
 y_pred = ensemble_model.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
-print("\nMean Squared Error (Voting):", mse)
+print("\n\nMean Squared Error (Voting):", mse)
+rmse = root_mean_squared_error(y_test, y_pred)
+print("Root Mean Squared Error (Voting):", rmse)
+mape = mean_absolute_percentage_error(y_test, y_pred)
+print("Mean Absolute Percentage Error (Voting):", mape)
+print('Accuracy (Voting):', round(100*(1 - mape), 2))
+
 scores = cross_val_score(ensemble_model, X, y, cv=5, scoring='neg_mean_squared_error')
 mse_scores = -scores
 print(f"Mean Squared Error (Voting) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
@@ -92,7 +103,13 @@ bagging_model = BaggingRegressor(estimator=RandomForestRegressor(random_state=59
 bagging_model.fit(X_train, y_train)
 y_pred_bagging = bagging_model.predict(X_test)
 mse_bagging = mean_squared_error(y_test, y_pred_bagging)
-print("Mean Squared Error (Bagging):", mse_bagging)
+print("\nMean Squared Error (Bagging):", mse_bagging)
+rmse = root_mean_squared_error(y_test, y_pred_bagging)
+print("Root Mean Squared Error (Bagging):", rmse)
+mape = mean_absolute_percentage_error(y_test, y_pred_bagging)
+print("Mean Absolute Percentage Error (Bagging):", mape)
+print('Accuracy (Bagging):', round(100*(1 - mape), 2))
+
 scores = cross_val_score(bagging_model, X, y, cv=5, scoring='neg_mean_squared_error')
 mse_scores = -scores
 print(f"Mean Squared Error (Bagging) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
@@ -123,7 +140,13 @@ stacking_model = StackingRegressor(estimators=estimators, final_estimator=Linear
 stacking_model.fit(X_train, y_train)
 y_pred_stacking = stacking_model.predict(X_test)
 mse_stacking = mean_squared_error(y_test, y_pred_stacking)
-print("Mean Squared Error (Stacking):", mse_stacking)
+print("\nMean Squared Error (Stacking):", mse_stacking)
+rmse = root_mean_squared_error(y_test, y_pred_stacking)
+print("Root Mean Squared Error (Stacking):", rmse)
+mape = mean_absolute_percentage_error(y_test, y_pred_stacking)
+print("Mean Absolute Percentage Error (Stacking):", mape)
+print('Accuracy (Stacking):', round(100*(1 - mape), 2))
+
 scores = cross_val_score(stacking_model, X, y, cv=5, scoring='neg_mean_squared_error')
 mse_scores = -scores
 print(f"Mean Squared Error (Stacking) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
