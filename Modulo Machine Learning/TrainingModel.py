@@ -62,7 +62,7 @@ for name, model in models.items():
     accuracy = round(100*(1 - mape), 2)
     print('Accuracy:', accuracy)
 
-    scores = cross_val_score(model, X, y, cv=5, scoring='neg_mean_squared_error')
+    scores = cross_val_score(model, X, y, cv=10, scoring='neg_mean_squared_error')
     mse_scores = -scores
     print(f"{name}: Mean Squared Error - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
 
@@ -110,7 +110,7 @@ print("Mean Absolute Percentage Error (Voting):", mape)
 accuracy = round(100*(1 - mape), 2)
 print('Accuracy (Voting):', accuracy)
 
-scores = cross_val_score(ensemble_model, X, y, cv=5, scoring='neg_mean_squared_error')
+scores = cross_val_score(ensemble_model, X, y, cv=10, scoring='neg_mean_squared_error')
 mse_scores = -scores
 print(f"Mean Squared Error (Voting) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
 
@@ -140,7 +140,7 @@ print("Mean Absolute Percentage Error (Bagging):", mape)
 accuracy = round(100*(1 - mape), 2)
 print('Accuracy (Bagging):', accuracy)
 
-scores = cross_val_score(bagging_model, X, y, cv=5, scoring='neg_mean_squared_error')
+scores = cross_val_score(bagging_model, X, y, cv=10, scoring='neg_mean_squared_error')
 mse_scores = -scores
 print(f"Mean Squared Error (Bagging) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
 
@@ -155,15 +155,28 @@ results = {
 
 model_results.append(results)
 
-'''
+plt.scatter(y_test, y_pred_bagging)
+plt.xlabel("Valori Effettivi")
+plt.ylabel("Valori Predetti")
+plt.title(f"Grafico a Dispersione dei Valori Predetti (Bagging)")
+plt.show()
+
+residuals = y_test - y_pred_bagging
+sns.histplot(residuals, kde=True)
+plt.xlabel("Errore Residuo")
+plt.ylabel("Frequenza")
+plt.title("Distribuzione dell' Errore Residuo (Bagging)")
+plt.show()
+
 importance_scores = []
 for estimator in bagging_model.estimators_:
     importance_scores.append(estimator.feature_importances_)
 average_importance = np.mean(importance_scores, axis=0)
 for feature, importance in zip(X_train.columns, average_importance):
     print(f"Feature: {feature}, Importance: {importance}")
+
+
 joblib.dump(bagging_model, 'Trained Models/Bagging_Regression.pkl')
-'''
 
 '''
 for i in range (100):
@@ -190,7 +203,7 @@ print("Mean Absolute Percentage Error (Stacking):", mape)
 accuracy = round(100*(1 - mape), 2)
 print('Accuracy (Stacking):', accuracy)
 
-scores = cross_val_score(stacking_model, X, y, cv=5, scoring='neg_mean_squared_error')
+scores = cross_val_score(stacking_model, X, y, cv=10, scoring='neg_mean_squared_error')
 mse_scores = -scores
 print(f"Mean Squared Error (Stacking) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
 
