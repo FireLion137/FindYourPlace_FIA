@@ -10,6 +10,9 @@ from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
 import joblib
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 # Importazione DataFrame
 df = pd.DataFrame(pd.read_csv('File Dati/IdQ_Com_Final.csv'))
 
@@ -44,6 +47,7 @@ models = {
     "Support_Vector_Machine": SVR()
 }
 
+model_results = []
 
 # Addestramento e valutazione dei modelli
 for name, model in models.items():
@@ -55,13 +59,25 @@ for name, model in models.items():
     print(f"{name}: Root Mean Squared Error - {rmse}")
     mape = mean_absolute_percentage_error(y_test, y_pred)
     print(f"{name}: Mean Absolute Percentage Error - {mape}")
-    print('Accuracy:', round(100*(1 - mape), 2))
+    accuracy = round(100*(1 - mape), 2)
+    print('Accuracy:', accuracy)
 
     scores = cross_val_score(model, X, y, cv=5, scoring='neg_mean_squared_error')
     mse_scores = -scores
     print(f"{name}: Mean Squared Error - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
 
     joblib.dump(model, f'Trained Models/{name}.pkl')
+
+    results = {
+        'Model': name,
+        'MSE': mse,
+        'RMSE': rmse,
+        'Accuracy': accuracy,
+        'Cross Validation MSE': mse_scores.mean(),
+        'Cross Validation Standard Deviation': mse_scores.std()
+    }
+
+    model_results.append(results)
 
 '''
 for i in range (100):
@@ -91,11 +107,24 @@ rmse = root_mean_squared_error(y_test, y_pred)
 print("Root Mean Squared Error (Voting):", rmse)
 mape = mean_absolute_percentage_error(y_test, y_pred)
 print("Mean Absolute Percentage Error (Voting):", mape)
-print('Accuracy (Voting):', round(100*(1 - mape), 2))
+accuracy = round(100*(1 - mape), 2)
+print('Accuracy (Voting):', accuracy)
 
 scores = cross_val_score(ensemble_model, X, y, cv=5, scoring='neg_mean_squared_error')
 mse_scores = -scores
 print(f"Mean Squared Error (Voting) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
+
+results = {
+    'Model': "Voting Regressor",
+    'MSE': mse,
+    'RMSE': rmse,
+    'Accuracy': accuracy,
+    'Cross Validation MSE': mse_scores.mean(),
+    'Cross Validation Standard Deviation': mse_scores.std()
+}
+
+model_results.append(results)
+
 
 # Creazione di Ensemble (Bagging)
 bagging_model = BaggingRegressor(estimator=RandomForestRegressor(random_state=59), n_estimators=15, random_state=73)
@@ -108,12 +137,25 @@ rmse = root_mean_squared_error(y_test, y_pred_bagging)
 print("Root Mean Squared Error (Bagging):", rmse)
 mape = mean_absolute_percentage_error(y_test, y_pred_bagging)
 print("Mean Absolute Percentage Error (Bagging):", mape)
-print('Accuracy (Bagging):', round(100*(1 - mape), 2))
+accuracy = round(100*(1 - mape), 2)
+print('Accuracy (Bagging):', accuracy)
 
 scores = cross_val_score(bagging_model, X, y, cv=5, scoring='neg_mean_squared_error')
 mse_scores = -scores
 print(f"Mean Squared Error (Bagging) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
 
+results = {
+    'Model': "Bagging Ensemble",
+    'MSE': mse,
+    'RMSE': rmse,
+    'Accuracy': accuracy,
+    'Cross Validation MSE': mse_scores.mean(),
+    'Cross Validation Standard Deviation': mse_scores.std()
+}
+
+model_results.append(results)
+
+'''
 importance_scores = []
 for estimator in bagging_model.estimators_:
     importance_scores.append(estimator.feature_importances_)
@@ -121,7 +163,7 @@ average_importance = np.mean(importance_scores, axis=0)
 for feature, importance in zip(X_train.columns, average_importance):
     print(f"Feature: {feature}, Importance: {importance}")
 joblib.dump(bagging_model, 'Trained Models/Bagging_Regression.pkl')
-
+'''
 
 '''
 for i in range (100):
@@ -145,11 +187,24 @@ rmse = root_mean_squared_error(y_test, y_pred_stacking)
 print("Root Mean Squared Error (Stacking):", rmse)
 mape = mean_absolute_percentage_error(y_test, y_pred_stacking)
 print("Mean Absolute Percentage Error (Stacking):", mape)
-print('Accuracy (Stacking):', round(100*(1 - mape), 2))
+accuracy = round(100*(1 - mape), 2)
+print('Accuracy (Stacking):', accuracy)
 
 scores = cross_val_score(stacking_model, X, y, cv=5, scoring='neg_mean_squared_error')
 mse_scores = -scores
 print(f"Mean Squared Error (Stacking) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
+
+results = {
+    'Model': "Stacking Ensemble",
+    'MSE': mse,
+    'RMSE': rmse,
+    'Accuracy': accuracy,
+    'Cross Validation MSE': mse_scores.mean(),
+    'Cross Validation Standard Deviation': mse_scores.std()
+}
+
+model_results.append(results)
+
 
 '''
 for name, model in models.items():
@@ -205,3 +260,51 @@ scores = cross_val_score(bagging_best_model, X, y, cv=5, scoring='neg_mean_squar
 mse_scores = -scores
 print(f"Mean Squared Error (Best Bagging) - Mean: {mse_scores.mean()}, Standard Deviation: {mse_scores.std()}")
 '''
+
+
+df_results = pd.DataFrame(model_results)
+
+# Grafico MSE
+plt.figure(figsize=(16, 8))
+sns.barplot(x='MSE', y='Model', data=df_results)
+plt.title('Mean Squared Error (MSE) for each Model')
+plt.xlabel('MSE')
+plt.ylabel('Model')
+plt.yticks(rotation=45)
+plt.show()
+
+# Grafico RMSE
+plt.figure(figsize=(16, 8))
+sns.barplot(x='RMSE', y='Model', data=df_results)
+plt.title('Root Mean Squared Error (RMSE) for each Model')
+plt.xlabel('RMSE')
+plt.ylabel('Model')
+plt.yticks(rotation=45)
+plt.show()
+
+# Grafico Accuracy
+plt.figure(figsize=(16, 8))
+sns.barplot(x='Accuracy', y='Model', data=df_results)
+plt.title('Accuracy for each Model')
+plt.xlabel('Accuracy')
+plt.ylabel('Model')
+plt.yticks(rotation=45)
+plt.show()
+
+# Grafico Cross Validation MSE
+plt.figure(figsize=(16, 8))
+sns.barplot(x='Cross Validation MSE', y='Model', data=df_results)
+plt.title('Cross Validation MSE for each Model')
+plt.xlabel('Cross Validation MSE')
+plt.ylabel('Model')
+plt.yticks(rotation=45)
+plt.show()
+
+# Grafico Cross Validation Standard Deviation
+plt.figure(figsize=(16, 8))
+sns.barplot(x='Cross Validation Standard Deviation', y='Model', data=df_results)
+plt.title('Cross Validation Std for each Model')
+plt.xlabel('Cross Validation Standard Deviation')
+plt.ylabel('Model')
+plt.yticks(rotation=45)
+plt.show()
