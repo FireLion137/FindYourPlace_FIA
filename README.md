@@ -10,3 +10,7 @@ In questa repository è contenuto il lavoro dedicato alla creazione del modulo d
 + Pietro Esposito - p.esposito62@studenti.unisa.it
 + Alessandro Nacchia - a.nacchia9@studenti.unisa.it
 + Lorenzo Castellano - l.castellano4@studenti.unisa.it
+
+# Informazioni
+Questo è un modulo scritto in Python specificatamente usato all'interno del progetto FindYourPlace.<br>
+Per ulteriori informazioni sul suo uso, fare riferimento alla repository del [progetto FYP](https://github.com/FireLion137/FindYourPlace_IS)
