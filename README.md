@@ -4,7 +4,7 @@
 </p>
 Repository per il progetto FindYourPlace per l'esame di Fondamenti di Intelligenza Artificiale <br>(Corso di Informatica - UniSA)<br><br>
 In questa repository è contenuto il lavoro dedicato alla creazione del modulo di IA usato nel sistema FindYourPlace.<br>
-<p><a href="https://github.com/Pietro1377/FindYourPlace_IS">Link al progetto del sistema FindYourPlace</a></p>
+<p><a href="https://github.com/FireLion137/FindYourPlace_IS">Link al progetto del sistema FindYourPlace</a></p>
 
 # Autori
 + Pietro Esposito - p.esposito62@studenti.unisa.it
