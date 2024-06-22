@@ -1,6 +1,6 @@
 # FindYourPlace
 <p align="center">
-  <img width="200" src="https://github.com/FireLion137/FindYourPlace_FIA/assets/55352707/3a54e0e3-26e4-4f46-b466-dc50167e8278">
+  <img width="200" src="https://github.com/FireLion137/FindYourPlace_FIA/assets/55352707/49a40da5-267f-4a1d-91cc-734f5d3ed219">
 </p>
 Repository per il progetto FindYourPlace per l'esame di Fondamenti di Intelligenza Artificiale <br>(Corso di Informatica - UniSA)<br><br>
 In questa repository è contenuto il lavoro dedicato alla creazione del modulo di IA usato nel sistema FindYourPlace.<br>
